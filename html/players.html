@@ -15,21 +15,24 @@
   				margin: 4px 2px;
   				cursor: pointer;
 			}
+			.update {
+  				font-size: 20px;
+			}
 		</style>
 	</header>
 	<body>
 		<h2> <ul>Yeah! I'm in for Session: %s</ul> </h2>
 		<hr>
 		<div>
-		Enter Your's Name:<br>
-		<input id="playername" class="plname" type="txt" value ="Player Name"/>
+		Player's Name:<br>
+		<input id="playername" class="plname" type="txt"/>
 		</div>
 		<br>
 		<div>
 		<button class="button" id="player-button" type="submit" onclick="send()">Submit</button>
 		</div>
 		<hr>
-		<pre class="update" id="update">Draw Number: </pre>
+		<pre class="update" id="update">Drawn Numbers: </pre>
 	<script>
 		<!-- "We need to keep on refreshing the players bingo-sheet." -->
 		<!-- websocket -->

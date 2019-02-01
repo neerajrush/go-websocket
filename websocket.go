@@ -71,13 +71,13 @@ var routes = Routes{
 	Route{
 		"Players",
 		"GET",
-		"/players/",
+		"/players/{sessId}",
 		Players,
 	},
 	Route{
 		"PlayersDraw",
 		"GET",
-		"/playersdraw/",
+		"/playersdraw",
 		PlayersDraw,
 	},
 	Route{
@@ -135,6 +135,12 @@ func Admin(w http.ResponseWriter, r *http.Request) {
 
 func Players(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("API: ", r.URL.Path)
+	vars := mux.Vars(r)
+	sessId := vars["sessId"]
+	fmt.Println("SessId:", sessId)
+	if sessId != sessionId {
+		http.NotFound(w, r)
+	}
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	body, _ := readFile("players")
