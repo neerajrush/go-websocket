@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+	<header>
+		<title> Bingo: Add New Player</title>
+		<style>
+			.button {
+  				background-color: #4CAF50;
+  				border: none;
+  				color: white;
+  				padding: 15px 32px;
+  				text-align: center;
+  				text-decoration: none;
+  				display: inline-block;
+  				font-size: 16px;
+  				margin: 4px 2px;
+  				cursor: pointer;
+			}
+		</style>
+	</header>
+	<body>
+		<h2> <ul>Yeah! I'm in</ul> </h2>
+		<br>
+		<form action="/player-info" method="post">
+			<div class="container">
+			Enter Your's Name:<br>
+			<input id="playername" name="playername" type="txt" value ="Player"/>
+			</div>
+		        <br>
+			<div>
+			<button id="player-btn" class="button" type="submit">Submit</button>
+			</div>
+		</form>
+	<script>
+		function players() {
+			const url = "localhost:8080/";
+			const iData = {
+				hostname: document.getElementById("hostname").value,
+				secretphrase: document.getElementById("secretphrase").value,
+			};
+			var xhr = new XMLHttpRequest();
+			xhr.open("POST", "/admin", true);
+			xhr.setRequestHeader('Content-Type', 'application/json');
+			xhr.send(JSON.stringify({
+    					value: iData
+				}));
+				xhr.onload = function() {
+  					console.log(this.responseText);
+  					var data = JSON.parse(this.responseText);
+  					console.log(data);
+				}
+		}
+	</script>
+	</body>
+</html>

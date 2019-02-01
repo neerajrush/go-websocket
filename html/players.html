@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+	<header>
+		<title>Player</title>
+		<style>
+			.button {
+  				background-color: #4CAF50;
+  				border: none;
+  				color: white;
+  				padding: 15px 32px;
+  				text-align: center;
+  				text-decoration: none;
+  				display: inline-block;
+  				font-size: 16px;
+  				margin: 4px 2px;
+  				cursor: pointer;
+			}
+		</style>
+	</header>
+	<body>
+		<h2> <ul>Yeah! I'm in for Session: %s</ul> </h2>
+		<hr>
+		<div>
+		Enter Your's Name:<br>
+		<input id="playername" class="plname" type="txt" value ="Player Name"/>
+		</div>
+		<br>
+		<div>
+		<button class="button" id="player-button" type="submit" onclick="send()">Submit</button>
+		</div>
+		<hr>
+		<pre class="update" id="update">Draw Number: </pre>
+	<script>
+		<!-- "We need to keep on refreshing the players bingo-sheet." -->
+		<!-- websocket -->
+		var socket = new WebSocket("ws://localhost:8081/playersdraw");
+
+		var update = document.getElementById("update");
+
+		socket.onmessage = function (e) {
+			console.log(e.data);
+			update.innerHTML += e.data + " ";
+		};
+
+		function send() {
+			socket.send("update");
+		}
+	</script>
+	</body>
+</html>

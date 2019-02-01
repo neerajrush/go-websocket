@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+	<header>
+		<title>Admin</title>
+		<style>
+                .linkbox {
+			width: 480px;
+			padding: 10px;
+			border: 5px solid gray;
+			margin: 0;
+			text-align: center;
+			font-size: 20px;
+		}
+		.button {
+			background-color: #4CAF50;
+			border: none;
+			color: white;
+			padding: 15px 32px;
+			text-align: center;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+			margin: 4px 2px;
+			cursor: pointer;
+		}
+		.drawbar {
+			background-color: #40AFFF;
+			border: 2px solid black;
+			color: black;
+			padding: 15px 32px;
+			text-align: left;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+			margin: 4px 2px;
+			max-width: 400px;
+		}
+		</style>
+	</header>
+	<body>
+		<h4>Forward the game link to each player</h4>
+		<div class="linkbox" id="gamelink">
+		<i class="fa fa-copy" style="text-align: right;"></i>
+		</div>
+		<br>
+		<div> 
+		<b>Be ready to draw numbers..</b>
+		</div> 
+		<br>
+		<div> 
+		<button class="button" id="draw-button" type="submit" onclick="send()">Draw Number</button>
+		</div>
+		<hr>
+		<pre class="drawbar" id="drawnumber">Draw Number:</pre>
+		<script>
+			<!-- websocket -->
+			var socket = new WebSocket("ws://localhost:8081/gamelink");
+
+			socket.onopen = function () {
+					socket.send("gamelink");
+			};
+
+			var gamelink = document.getElementById("gamelink");
+			var drawNumber = document.getElementById("drawnumber");
+
+			socket.onmessage = function (e) {
+				console.log(e.data);
+				var lnk = e.data.includes("http://");
+				if (lnk) {
+					gamelink.innerHTML += e.data;
+					return;
+				} 
+				drawNumber.innerHTML += e.data + " ";
+			};
+
+			function send() {
+				socket.send("draw");
+			}
+		</script>
+	</body>
+</html>

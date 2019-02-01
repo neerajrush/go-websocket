@@ -1,0 +1,144 @@
+<!DOCTYPE HTML5>
+
+<html>
+
+<head>
+<title> Bingo: Display Players Sheet</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="static/bootstrap.min.css" rel="stylesheet", media="screen">
+<style type="text/css">
+
+h1 {
+text-align: center;
+text-decoration: underline;
+}
+
+h2 {
+text-align: center;
+color: blue;
+font-style: italic;
+margin: auto;
+type: h2;
+}
+
+h3 {
+text-align: right;
+color: brown;
+font-style: italic;
+margin: auto;
+type: h3;
+}
+
+h4 {
+text-align: right;
+margin: auto;
+type: h4;
+}
+
+th, td { 
+text-align: center;
+font-size: 30px;
+border: 2px solid black;
+width: 520px;
+height: 65px;
+border-spacing: 2px;
+border-collapse: separate;
+border-color: black;
+}
+
+tr:hover {
+    background-color: DarkGoldenRod;
+}
+
+div.assigned_sheets {
+float: left;
+background-color: DarkKhaki;
+border: 2px solid black;
+table-layout: auto;
+table-position: center;
+width: 520px;
+margin: 20px;
+text-align: center;
+border-spacing: 2px;
+border-collapse: separate;
+border-color: black;
+}
+
+div.a_sheet {
+float: right;
+background-color: plum;
+border: 2px solid black;
+table-layout: auto;
+table-position: center;
+width: 640px;
+margin: 20px;
+text-align: center;
+border-spacing: 2px;
+border-collapse: separate;
+border-color: black;
+}
+
+</style>
+</head>
+
+<body>
+   <h4 style="text-align: center;">Players Bingo Sheet</h4>
+   <hr>
+   <div> <h4 style="text-align: center;">{{ player }}</h4>
+   </div>
+   <hr>
+
+   <div class="players_assigned_sheet"> 
+
+      {% if players_assigned_sheet %}
+         {{ players_assigned_sheet }}
+      {% endif %}
+
+      <script src="static/jquery.min.js"></script>
+      <!-- Include all compiled plugins (below), or include individual files as needed -->
+      <script src="static/bootstrap.min.js"></script>
+      <script>
+         $('td').click(function(){
+		var sheetId = $(this).html();
+	        console.log(sheetId);
+		$.ajax({
+		    url: '/display_sheets',
+                    dataType: 'text',
+                    contentType: 'application/text',
+		    type: 'POST',
+		    data: SheetID=sheetId,
+		    success: function(data) {
+			console.log(data);
+			var json = $.parseJSON(data);
+			    $(json).each(function(i,val){
+				$.each(val,function(k,v){
+				     console.log(k+" : "+ v);     
+                	      	     if (k === 'selected_sheet_name')  {
+					 document.getElementById("sheet_caption").innerHTML = v;
+				     }
+                	             if (k === 'a_sheet')  {
+				         document.getElementById("a_sheet").innerHTML = v
+			             }
+				});
+	                    });
+			},
+		    error: function(error) {
+			console.log(error);
+		    }
+             });
+         });
+      </script>
+             <!--- var x = document.getElementsByClassName("assigned_sheets_table"); --->
+             <!--- alert(x[0].rows[1].cells[0].innerHTML); --->
+   </div>
+
+   <div class="a_sheet"> 
+      {% if a_sheet %}
+         <caption><h4 id="sheet_caption" style="font-size: 40px; text-align: center; height: 60px">{{ selected_sheet_name }}</h4></caption>
+         <p id="a_sheet">{{ a_sheet }}</p>
+      {% endif %}
+   </div>
+
+   <hr>
+
+</body>

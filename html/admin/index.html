@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+	<header>
+		<title> Bingo: Home Page</title>
+		<style>
+			.button {
+  				background-color: #4CAF50;
+  				border: none;
+  				color: white;
+  				padding: 15px 32px;
+  				text-align: center;
+  				text-decoration: none;
+  				display: inline-block;
+  				font-size: 16px;
+  				margin: 4px 2px;
+  				cursor: pointer;
+			}
+		</style>
+	</header>
+	<body>
+		<h2> <ul>Let's play Bingo</ul> </h2>
+		<br>
+		<form action="/admin/" method="post">
+			<div class="container">
+			Enter Host's Name (e.g: Mark, Lina..):<br>
+			<input id="hostname" name="hostname" type="txt" value ="Host Name"/>
+			</div>
+		        <br>
+			<div class="container">
+			Enter Secret Phrase (e.g: Rose, Lily..):<br>
+			<input id="secretphrase" name="secretphrase" type="txt" value ="secret phrase"/>
+			</div>
+		        <br>
+			<div>
+			<button id="startbingo" class="button" type="submit">Start Bingo</button>
+			</div>
+		</form>
+	<script>
+		function players() {
+			const url = "localhost:8080/";
+			const iData = {
+				hostname: document.getElementById("hostname").value,
+				secretphrase: document.getElementById("secretphrase").value,
+			};
+			var xhr = new XMLHttpRequest();
+			xhr.open("POST", "/admin", true);
+			xhr.setRequestHeader('Content-Type', 'application/json');
+			xhr.send(JSON.stringify({
+    					value: iData
+				}));
+				xhr.onload = function() {
+  					console.log(this.responseText);
+  					var data = JSON.parse(this.responseText);
+  					console.log(data);
+				}
+		}
+	</script>
+	</body>
+</html>

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+	<header>
+		<title> Bingo: Home Page</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link href="styles.css" rel="stylesheet">
+	</header>
+	<body>
+		<h2> Let's play Bingo </h2>
+		<form>
+			<div class="container">
+			Enter Party Name:<br>
+			<input name="gameName" type="txt" value ="Our Party"/>
+		        <br>
+			</div>
+			<div class="button">
+		 		<button type="submit">Start Bingo</button>
+			</div>
+		</form>
+	</body>
+</html>
