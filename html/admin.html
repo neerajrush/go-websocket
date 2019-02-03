@@ -23,6 +23,18 @@
 			margin: 4px 2px;
 			cursor: pointer;
 		}
+		.newplayers {
+			background-color: #409FFF;
+			border: 2px solid black;
+			color: black;
+			padding: 15px 32px;
+			text-align: left;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+			margin: 4px 2px;
+			max-width: 400px;
+		}
 		.drawbar {
 			background-color: #40AFFF;
 			border: 2px solid black;
@@ -51,7 +63,9 @@
 		<button class="button" id="draw-button" type="submit" onclick="send()">Draw Number</button>
 		</div>
 		<hr>
-		<pre class="drawbar" id="drawnumber">Draw Number:</pre>
+		<pre class="newplayers" id="newplayer">Players: </pre>
+		<hr>
+		<pre class="drawbar" id="drawnumber">Draw Number: </pre>
 		<script>
 			<!-- websocket -->
 			var socket = new WebSocket("ws://localhost:8081/gamelink");
@@ -62,6 +76,7 @@
 
 			var gamelink = document.getElementById("gamelink");
 			var drawNumber = document.getElementById("drawnumber");
+			var newPlayer = document.getElementById("newplayer");
 
 			socket.onmessage = function (e) {
 				console.log(e.data);
@@ -70,7 +85,12 @@
 					gamelink.innerHTML += e.data;
 					return;
 				} 
-				drawNumber.innerHTML += e.data + " ";
+				var jsonObj = JSON.parse(e.data);
+				if (jsonObj.msg_type == "new_player") {
+					newPlayer.innerHTML += jsonObj.new_player + " ";
+					return;
+				} 
+				drawNumber.innerHTML += jsonObj.draw_number + " ";
 			};
 
 			function send() {
