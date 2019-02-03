@@ -229,21 +229,23 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			fmt.Println("Msg:", string(msg))
-			if !strings.Contains(string(msg), "/update/") {
+			if !strings.Contains(string(msg), "update/") {
+				fmt.Println("invalid request ..")
 				return
 			}
 			sIndex := strings.Index(string(msg), "/")
-			pIndex := strings.Index(string(msg)[sIndex+1:], "/")
-			snId := string(msg)[sIndex+1 : pIndex]
-			playerName := string(msg)[pIndex+1:]
+			subMsg := string(msg)[sIndex+1:]
+			pIndex := strings.Index(subMsg, "/")
+			snId := subMsg[: pIndex]
+			playerName := subMsg[pIndex+1:]
 			fmt.Println("SessionId:", snId)
 			fmt.Println("PlayerName:", playerName)
 			if snId != sessionId {
-				fmt.Println("Error ..")
+				fmt.Println("Invalid Sessonid got:", snId, " expected:", sessionId)
 				return
 			}
 			aSheet := PlayerSheet{Player_Sheet: getASheet()}
-			dNum := DrawNumber() + 20
+			//dNum := DrawNumber() + 20
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -252,7 +254,9 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 
 			// Print the message to the console
 			fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), aSheet)
-			if jsonSheet, err := json.Marshal(aSheet); err != nil {
+
+			jsonSheet, err := json.Marshal(aSheet)
+			if err != nil {
 				fmt.Println(err)
 				return	
 			}
@@ -297,17 +301,4 @@ func getASheet() [][]int {
 		}
 	}
 	return cols
-}
-
-func (c *Conn) WriteJSON(v interface{}) error {
-	w, err := c.NextWriter(TextMessage)
-	if err != nil {
-		return err
-	}
-	err1 := json.NewEncoder(w).Encode(v)
-	err2 := w.Close()
-	if err1 != nil {
-		return err1
-	}
-	return err2
 }
