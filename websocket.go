@@ -207,12 +207,12 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-type GamePlayer struct {
-	Name    string
-	SheetId string
+type GameSheet struct {
+	SheetId int
+	Sheet   [][]int
 }
 
-var gamePlayers []*GamePlayer
+var gamePlayers map[string]*GameSheet
 
 func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil) // error ignored for sake of simplicity
@@ -266,6 +266,12 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				fmt.Println(err)
 				return
 			}
+			if _,ok := gamePlayers[playerName]; !ok {
+				gamePlayers[playerName] = &GameSheet{ SheetId: 1, Sheet: aSheet.Player_Sheet, }
+			} else {
+				gamePlayers[playerName].SheetId++
+				gamePlayers[playerName].Sheet = aSheet.Player_Sheet
+			}
 		}
 	}()
 }
@@ -283,8 +289,8 @@ func readFile(title string) ([]byte, error) {
 	return body, nil
 }
 
-func inigt() {
-	gamePlayers = make([]*GamePlayer, 0)
+func init() {
+	gamePlayers = make(map[string]*GameSheet)
 }
 
 func main() {
