@@ -3,13 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	_ "html/template"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
-	_ "html/template"
+	"strconv"
+	"strings"
 )
 
 type GameSession struct {
@@ -205,6 +207,13 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
+type GamePlayer struct {
+	Name    string
+	SheetId string
+}
+
+var gamePlayers []*GamePlayer
+
 func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil) // error ignored for sake of simplicity
 	if err != nil {
@@ -220,23 +229,45 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			fmt.Println("Msg:", string(msg))
-			if string(msg) != "update" {
+			if !strings.Contains(string(msg), "/update/") {
 				return
 			}
+			sIndex := strings.Index(string(msg), "/")
+			pIndex := strings.Index(string(msg)[sIndex+1:], "/")
+			snId := string(msg)[sIndex+1 : pIndex]
+			playerName := string(msg)[pIndex+1:]
+			fmt.Println("SessionId:", snId)
+			fmt.Println("PlayerName:", playerName)
+			if snId != sessionId {
+				fmt.Println("Error ..")
+				return
+			}
+			aSheet := PlayerSheet{Player_Sheet: getASheet()}
 			dNum := DrawNumber() + 20
 			if err != nil {
+				fmt.Println(err)
 				return
 			}
+			w.Header().Set("Content-Type", "application/json")
 
 			// Print the message to the console
-			fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), dNum)
+			fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), aSheet)
+			if jsonSheet, err := json.Marshal(aSheet); err != nil {
+				fmt.Println(err)
+				return	
+			}
 
 			// Write message back to browser
-			if err = conn.WriteMessage(msgType, []byte(strconv.Itoa(dNum))); err != nil {
+			if err = conn.WriteMessage(msgType, []byte(jsonSheet)); err != nil {
+				fmt.Println(err)
 				return
 			}
 		}
 	}()
+}
+
+type PlayerSheet struct {
+	Player_Sheet [][]int `json:"player_sheet"`
 }
 
 func readFile(title string) ([]byte, error) {
@@ -248,7 +279,35 @@ func readFile(title string) ([]byte, error) {
 	return body, nil
 }
 
+func inigt() {
+	gamePlayers = make([]*GamePlayer, 0)
+}
+
 func main() {
 	router := NewRouter()
 	log.Fatal(http.ListenAndServe(":8081", router))
+}
+
+func getASheet() [][]int {
+	cols := make([][]int, 5)
+	for i, _ := range cols {
+		cols[i] = make([]int, 5)
+		for j, _ := range cols[i] {
+			cols[i][j] = rand.Intn(100)
+		}
+	}
+	return cols
+}
+
+func (c *Conn) WriteJSON(v interface{}) error {
+	w, err := c.NextWriter(TextMessage)
+	if err != nil {
+		return err
+	}
+	err1 := json.NewEncoder(w).Encode(v)
+	err2 := w.Close()
+	if err1 != nil {
+		return err1
+	}
+	return err2
 }

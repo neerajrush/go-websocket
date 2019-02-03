@@ -15,17 +15,40 @@
   				margin: 4px 2px;
   				cursor: pointer;
 			}
+			.player_sheet {
+				float: left;
+				background-color: plum;
+				border: 2px solid black;
+				table-layout: auto;
+				table-position: center;
+				width: 640px;
+				margin: 20px;
+				text-align: center;
+				border-spacing: 2px;
+				border-collapse: separate;
+				border-color: black;
+			}
+			th, td { 
+				text-align: center;
+				font-size: 30px;
+				border: 2px solid black;
+				width: 520px;
+				height: 65px;
+				border-spacing: 2px;
+				border-collapse: separate;
+				border-color: black;
+			}
 			.update {
   				font-size: 20px;
 			}
 		</style>
 	</header>
 	<body>
-		<h2> <ul>Yeah! I'm in for Session: %s</ul> </h2>
+		<h2 id="session_id">Yeah! I'm in for Session:</h2>
 		<hr>
 		<div>
 		Player's Name:<br>
-		<input id="playername" class="plname" type="txt"/>
+		<input id="player_name" class="player_name" type="txt"/>
 		</div>
 		<br>
 		<div>
@@ -33,20 +56,45 @@
 		</div>
 		<hr>
 		<pre class="update" id="update">Drawn Numbers: </pre>
+   		<hr>
+   		<h4 style="text-align: center;">Players Game Sheet</h4>
+   		<div id="player"><b>Player: </b></div>
+   		<hr>
+
+   		<div class="player_sheet"> 
+      		{% if player_sheet %}
+         		<caption><h4 id="sheet_caption" style="font-size: 40px; text-align: center; height: 60px">{{ playerName }}</h4></caption>
+         		<p id="player_sheet">{{ player_sheet }}</p>
+      		{% endif %}
+   		</div>
 	<script>
 		<!-- "We need to keep on refreshing the players bingo-sheet." -->
+		var sessionId = window.location.href.split('/')[4];
+		document.getElementById("session_id").innerHTML += " " + sessionId;
+
 		<!-- websocket -->
 		var socket = new WebSocket("ws://localhost:8081/playersdraw");
 
-		var update = document.getElementById("update");
-
 		socket.onmessage = function (e) {
 			console.log(e.data);
-			update.innerHTML += e.data + " ";
+			var json = $.parseJSON(e.data);
+		    	$(json).each(function(i,val){
+				$.each(val,function(k,v){
+			     		console.log(k+" : "+ v);     
+			     		if (k === 'player_sheet')  {
+				 		document.getElementById("player_sheet").innerHTML = v;
+			     		}
+			     		if (k === 'update')  {
+				 		document.getElementById("update").innerHTML += e.data + " ";
+			     		}
+				});
+		    	});
 		};
 
 		function send() {
-			socket.send("update");
+			var playerName = document.getElementById("player_name").value;
+		        document.getElementById("player").innerHTML += playerName;
+			socket.send("/update/" + sessionid + "/" + playerName);
 		}
 	</script>
 	</body>
