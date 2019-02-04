@@ -169,15 +169,16 @@ type  WebMsgOut struct {
 	Msg_Type      string   `json:"msg_type"`
 	Player_Name   string   `json:"new_player"`
 	Draw_Number   int      `json:"draw_number"`
+	Player_Sheet  [][]int  `json:"player_sheet"`
 }
 
-type WebMsg struct {
+type WebMsgIn struct {
 	MsgType int
 	Msg []byte
 }
 
 var playersChan chan string
-var adminChan chan *WebMsg
+var adminChan chan *WebMsgIn
 
 func GameLink(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil) // error ignored for sake of simplicity
@@ -194,7 +195,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			fmt.Println("Msg:", string(msg))
-			adminChan <- &WebMsg{ MsgType: msgType, Msg: msg, }
+			adminChan <- &WebMsgIn{ MsgType: msgType, Msg: msg, }
 		}
 	}()
 
@@ -205,9 +206,9 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 			var playerName string
 			select {
 				// Read message from browser
-			case webMsg := <- adminChan:
-				msgType = webMsg.MsgType
-				msg = webMsg.Msg
+			case webMsgIn := <- adminChan:
+				msgType = webMsgIn.MsgType
+				msg = webMsgIn.Msg
 				fmt.Println("Msg:", string(msg))
 			case playerName = <- playersChan:
 				fmt.Println("New Player is being added:", playerName)
@@ -244,6 +245,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 					log.Println(err)
 					return
 				}
+				drawChan <- dNum
 			}
 			if string(msg) == "new_player" {
 				// Print the message to the console
@@ -274,6 +276,9 @@ type GameSheet struct {
 
 var gamePlayers map[string]*GameSheet
 
+var sheetChan chan *WebMsgIn
+var drawChan chan int
+
 func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil) // error ignored for sake of simplicity
 	if err != nil {
@@ -281,58 +286,69 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
+	go func () {
 		for {
 			// Read message from browser
 			msgType, msg, err := conn.ReadMessage()
 			if err != nil {
+				log.Println(err)
 				return
 			}
 			fmt.Println("Msg:", string(msg))
-			if !strings.Contains(string(msg), "update/") {
-				fmt.Println("invalid request ..")
-				return
+			sheetChan <- &WebMsgIn{ MsgType: msgType, Msg: msg, }
+		}
+	}()
+
+	go func() {
+		msgType := 1
+		var snId, playerName string
+		for {
+			var webMsgOut WebMsgOut
+			select {
+			case webMsgIn := <- sheetChan:
+				if !strings.Contains(string(webMsgIn.Msg), "update/") {
+					fmt.Println("invalid request ..")
+					return
+				}
+				sIndex := strings.Index(string(webMsgIn.Msg), "/")
+				subMsg := string(webMsgIn.Msg)[sIndex+1:]
+				pIndex := strings.Index(subMsg, "/")
+				snId = subMsg[: pIndex]
+				playerName = subMsg[pIndex+1:]
+				fmt.Println("SessionId:", snId)
+				fmt.Println("PlayerName:", playerName)
+				if snId != sessionId {
+					fmt.Println("Invalid Sessonid got:", snId, " expected:", sessionId)
+					return
+				}
+				webMsgOut.Msg_Type = "player_sheet"
+				webMsgOut.Player_Sheet = getASheet()
+				fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Player_Sheet)
+				if _,ok := gamePlayers[playerName]; !ok {
+					gamePlayers[playerName] = &GameSheet{ SheetId: 1, Sheet: webMsgOut.Player_Sheet, }
+				} else {
+					gamePlayers[playerName].SheetId++
+					gamePlayers[playerName].Sheet = webMsgOut.Player_Sheet
+				}
+				playersChan <- playerName
+			case drawNumber := <- drawChan:
+				webMsgOut.Msg_Type = "draw_number"
+				webMsgOut.Draw_Number = drawNumber
+				fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Draw_Number)
 			}
-			sIndex := strings.Index(string(msg), "/")
-			subMsg := string(msg)[sIndex+1:]
-			pIndex := strings.Index(subMsg, "/")
-			snId := subMsg[: pIndex]
-			playerName := subMsg[pIndex+1:]
-			fmt.Println("SessionId:", snId)
-			fmt.Println("PlayerName:", playerName)
-			if snId != sessionId {
-				fmt.Println("Invalid Sessonid got:", snId, " expected:", sessionId)
-				return
-			}
-			aSheet := PlayerSheet{Player_Sheet: getASheet()}
-			//dNum := DrawNumber() + 20
+
+			jsonObj, err := json.Marshal(webMsgOut)
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 
-			// Print the message to the console
-			fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), aSheet)
-
-			jsonSheet, err := json.Marshal(aSheet)
-			if err != nil {
-				fmt.Println(err)
-				return	
-			}
-
 			// Write message back to browser
-			if err = conn.WriteMessage(msgType, []byte(jsonSheet)); err != nil {
+			if err = conn.WriteMessage(msgType, []byte(jsonObj)); err != nil {
 				fmt.Println(err)
 				return
 			}
-			if _,ok := gamePlayers[playerName]; !ok {
-				gamePlayers[playerName] = &GameSheet{ SheetId: 1, Sheet: aSheet.Player_Sheet, }
-			} else {
-				gamePlayers[playerName].SheetId++
-				gamePlayers[playerName].Sheet = aSheet.Player_Sheet
-			}
-			playersChan <- playerName
 		}
 	}()
 }
@@ -353,7 +369,9 @@ func readFile(title string) ([]byte, error) {
 func init() {
 	gamePlayers = make(map[string]*GameSheet)
 	playersChan = make(chan string, 1)
-	adminChan = make(chan *WebMsg)
+	adminChan = make(chan *WebMsgIn)
+	sheetChan = make(chan *WebMsgIn)
+	drawChan = make(chan int)
 }
 
 func main() {

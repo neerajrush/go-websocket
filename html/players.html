@@ -39,7 +39,7 @@
 				border-collapse: separate;
 				border-color: black;
 			}
-			.update {
+			.draw_number {
   				font-size: 20px;
 			}
 		</style>
@@ -56,7 +56,7 @@
 		<button class="button" id="player-button" type="submit" onclick="send()">Submit</button>
 		</div>
 		<hr>
-		<pre class="update" id="update">Drawn Numbers: </pre>
+		<pre class="draw_number" id="draw_number">Drawn Numbers: </pre>
    		<hr>
    		<h4 id="player" style="text-align: center;">Game Sheet: </h4>
    		<hr>
@@ -75,19 +75,23 @@
 		socket.onmessage = function (e) {
 			console.log(e.data);
 			var jsonObj = JSON.parse(e.data);
-			console.log(jsonObj.player_sheet.length);
-			var plTable = "<table border='2'><tbody>";
-			for (var i = 0; i < jsonObj.player_sheet.length; i++) {
-				var colData = "";
-				for (var j = 0; j < jsonObj.player_sheet[i].length; j++) {
-      					colData += "<tc><td>" + jsonObj.player_sheet[i][j] + "</td></tc>";
-				}
-				plTable += "<tr>" + colData + "</tr>";
+			if (jsonObj.msg_type == "player_sheet") {
+				console.log(jsonObj.player_sheet.length);
+				var plTable = "<table border='2'><tbody>";
+				for (var i = 0; i < jsonObj.player_sheet.length; i++) {
+					var colData = "";
+					for (var j = 0; j < jsonObj.player_sheet[i].length; j++) {
+      						colData += "<tc><td>" + jsonObj.player_sheet[i][j] + "</td></tc>";
+					}
+					plTable += "<tr>" + colData + "</tr>";
 
+				}
+				plTable += "</tbody></table>";
+				document.getElementById("player_sheet").innerHTML = plTable;
 			}
-			plTable += "</tbody></table>";
-			document.getElementById("player_sheet").innerHTML = plTable;
-			//document.getElementById("update").innerHTML += e.data + " ";
+			if (jsonObj.msg_type == "draw_number") {
+				document.getElementById("draw_number").innerHTML += jsonObj.draw_number + " ";
+			}
 		};
 
 		function send() {
