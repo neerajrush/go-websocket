@@ -71,7 +71,7 @@
 			var socket = new WebSocket("ws://localhost:8081/gamelink");
 
 			socket.onopen = function () {
-					socket.send("gamelink");
+				socket.send("gamelink");
 			};
 
 			var gamelink = document.getElementById("gamelink");

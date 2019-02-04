@@ -10,7 +10,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	_"strconv"
+	"time"
 	"strings"
 )
 
@@ -59,12 +59,6 @@ var routes = Routes{
 		Status,
 	},
 	Route{
-		"NewSession",
-		"POST",
-		"/new",
-		NewSession,
-	},
-	Route{
 		"Home",
 		"GET",
 		"/",
@@ -96,24 +90,23 @@ var routes = Routes{
 	},
 }
 
-var sessionId string
-var gameLink string
+type GameSheet struct {
+	SheetId      int
+	Sheet        [][]int
+	SheetChan    chan int
+}
+
+type GameSession struct {
+	GameId      string
+	GameLink    string
+	GamePlayers map[string]*GameSheet
+}
+
+// map sessionId ==> gameLink
+var gameSessions map[string]*GameSession
 
 func Home(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("API: ", r.URL.Path)
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	body, _ := readFile("index")
-	w.Write(body)
-}
-
-func NewSession(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("API: ", r.URL.Path)
-	vars := mux.Vars(r)
-	groupName := vars["groupname"]
-	secretPhrase := vars["secretphrase"]
-	sessionId = groupName + "-" + secretPhrase
-	fmt.Println("SessionId:", sessionId)
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	body, _ := readFile("index")
@@ -127,8 +120,11 @@ func Admin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	sessionId = r.Form.Get("groupname") + "-" + r.Form.Get("secretphrase")
-	gameLink = "http://localhost:8081/players/" + sessionId
+	sessionId := r.Form.Get("groupname") + "-" + r.Form.Get("secretphrase")
+	gameLink := "http://localhost:8081/players/" + sessionId
+	if _, ok := gameSessions[sessionId]; !ok {
+		gameSessions[sessionId] = &GameSession{GameId: sessionId, GameLinK: gameLink, GamePlayers: make(map[string]*GameSheet), }
+	}
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	body, _ := readFile("admin")
@@ -138,9 +134,9 @@ func Admin(w http.ResponseWriter, r *http.Request) {
 func Players(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("API: ", r.URL.Path)
 	vars := mux.Vars(r)
-	sessId := vars["sessId"]
-	fmt.Println("SessId:", sessId)
-	if sessId != sessionId {
+	sessionId := vars["sessId"]
+	fmt.Println("SessionId:", sessId)
+	if _,ok := gameSessions[sessionId]; !ok {
 		http.NotFound(w, r)
 	}
 	w.Header().Set("Content-Type", "text/html")
@@ -162,7 +158,18 @@ func Status(w http.ResponseWriter, r *http.Request) {
 }
 
 func DrawNumber() int {
-	return 23
+	rand.Seed(time.Now().Unix())
+	return  rand.Intn(100)
+}
+
+type PlayerSheet struct {
+	Player_Sheet [][]int `json:"player_sheet"`
+}
+
+// WebSocket In&Out structs.
+type WebMsgIn struct {
+	MsgType int
+	Msg []byte
 }
 
 type  WebMsgOut struct {
@@ -172,13 +179,8 @@ type  WebMsgOut struct {
 	Player_Sheet  [][]int  `json:"player_sheet"`
 }
 
-type WebMsgIn struct {
-	MsgType int
-	Msg []byte
-}
-
-var playersChan chan string
 var adminChan chan *WebMsgIn
+var playersChan chan string
 
 func GameLink(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil) // error ignored for sake of simplicity
@@ -215,7 +217,11 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				msg = []byte("new_player")
 				msgType = 1 // TextMessage
 			}
-			if string(msg) == "gamelink" {
+			if string(msg) == "gamelink" && len(gameSessions) > 0 {
+				var gameLink string
+				for _, v := range gameSessions {
+					gameLink = v.GameLink
+				}
 				// Print the message to the console
 				fmt.Printf("%s is being sent: %s\n", conn.RemoteAddr(), gameLink)
 
@@ -226,7 +232,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			var webMsgOut WebMsgOut
-			if string(msg) == "draw" {
+			if string(msg) == "draw"  && len(gameSessions) > 0 {
 				dNum := DrawNumber()
 				w.Header().Set("Content-Type", "application/json")
 				webMsgOut.Msg_Type = "draw_number"
@@ -247,7 +253,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				}
 				drawChan <- dNum
 			}
-			if string(msg) == "new_player" {
+			if string(msg) == "new_player"  && len(gameSessions) > 0 {
 				// Print the message to the console
 				fmt.Printf("%s is being sent: %s\n", conn.RemoteAddr(), playerName)
 				webMsgOut.Msg_Type = string(msg)
@@ -255,7 +261,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				jsonPlayer, err := json.Marshal(webMsgOut)
 				if err != nil {
 					fmt.Println(err)
-					return	
+					return
 				}
 				w.Header().Set("Content-Type", "application/json")
 
@@ -269,12 +275,6 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-type GameSheet struct {
-	SheetId int
-	Sheet   [][]int
-}
-
-var gamePlayers map[string]*GameSheet
 
 var sheetChan chan *WebMsgIn
 var drawChan chan int
@@ -317,20 +317,20 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				playerName = subMsg[pIndex+1:]
 				fmt.Println("SessionId:", snId)
 				fmt.Println("PlayerName:", playerName)
-				if snId != sessionId {
+				if _, ok := gameSessions[snId]; !ok {
 					fmt.Println("Invalid Sessonid got:", snId, " expected:", sessionId)
 					return
 				}
 				webMsgOut.Msg_Type = "player_sheet"
 				webMsgOut.Player_Sheet = getASheet()
 				fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Player_Sheet)
-				if _,ok := gamePlayers[playerName]; !ok {
-					gamePlayers[playerName] = &GameSheet{ SheetId: 1, Sheet: webMsgOut.Player_Sheet, }
+				if _,ok := gameSessions[snId].GamePlayers[playerName]; !ok {
+					gameSessions[snId].GamePlayers[playerName] = &GameSheet{ SheetId: 1, Sheet: webMsgOut.Player_Sheet, }
 				} else {
-					gamePlayers[playerName].SheetId++
-					gamePlayers[playerName].Sheet = webMsgOut.Player_Sheet
+					gameSessions[snId].GamePlayers[playerName].SheetId++
+					gameSessions[snId].GamePlayers[playerName].Sheet = webMsgOut.Player_Sheet
 				}
-				playersChan <- playerName
+				gameSessions[snId].GamePlayers.playersChan <- playerName
 			case drawNumber := <- drawChan:
 				webMsgOut.Msg_Type = "draw_number"
 				webMsgOut.Draw_Number = drawNumber
@@ -353,9 +353,6 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-type PlayerSheet struct {
-	Player_Sheet [][]int `json:"player_sheet"`
-}
 
 func readFile(title string) ([]byte, error) {
 	filename := "html/" + title + ".html"
@@ -367,6 +364,7 @@ func readFile(title string) ([]byte, error) {
 }
 
 func init() {
+	gameSessions = make(map[string]*GameSession)
 	gamePlayers = make(map[string]*GameSheet)
 	playersChan = make(chan string, 1)
 	adminChan = make(chan *WebMsgIn)
