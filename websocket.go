@@ -307,13 +307,6 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 					log.Println(err)
 					return
 				}
-				if _, ok := gameSessions[sessionId].GamePlayers[playerName]; !ok {
-					gameSessions[sessionId].GamePlayers[playerName] = &GameSheet{ SheetId: 1,
-				                                                              Sheet: getASheet(),
-											      WebInChan: make(chan *WebMsgIn),
-											      DrawChan: make(chan int),
-										   }
-			       }
 			}
 		}
 	}()
@@ -348,8 +341,8 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 			pIndex := strings.Index(subMsg, "/")
 			snId := subMsg[: pIndex]
 			playerName := subMsg[pIndex+1:]
-			log.Println("SessionId:", snId)
-			log.Println("PlayerName:", playerName)
+			log.Println("PlayersDraw SessionId:", snId)
+			log.Println("PlayersDraw PlayerName:", playerName)
 			webInChan <- &WebMsgIn{ MsgType: msgType, Msg: msg, }
 		}
 	}()
@@ -371,21 +364,25 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 					pIndex := strings.Index(subMsg, "/")
 					snId = subMsg[: pIndex]
 					playerName = subMsg[pIndex+1:]
-					fmt.Println("SessionId:", snId)
-					fmt.Println("PlayerName:", playerName)
+					fmt.Println("WebMsgIn SessionId:", snId)
+					fmt.Println("WebMsgIn PlayerName:", playerName)
 					if _, ok := gameSessions[snId]; !ok {
-						fmt.Println("Invalid Sessonid got:", snId)
+						fmt.Println("Invalid SessonId got:", snId)
 						return
 					}
-					webMsgOut.Msg_Type = "player_sheet"
-					webMsgOut.Player_Sheet = gameSessions[snId].GamePlayers[playerName].Sheet
-					fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Player_Sheet)
-					if _,ok := gameSessions[snId].GamePlayers[playerName]; !ok {
-						gameSessions[snId].GamePlayers[playerName] = &GameSheet{ SheetId: 1, Sheet: webMsgOut.Player_Sheet, }
+				        if _, ok := gameSessions[snId].GamePlayers[playerName]; !ok {
+					        gameSessions[snId].GamePlayers[playerName] = &GameSheet{ SheetId: 1,
+				                                                              Sheet: getASheet(),
+											      WebInChan: make(chan *WebMsgIn),
+											      DrawChan: make(chan int),
+										   }
 					} else {
 						gameSessions[snId].GamePlayers[playerName].SheetId++
 						gameSessions[snId].GamePlayers[playerName].Sheet = webMsgOut.Player_Sheet
 					}
+					webMsgOut.Msg_Type = "player_sheet"
+					webMsgOut.Player_Sheet = gameSessions[snId].GamePlayers[playerName].Sheet
+					fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Player_Sheet)
 					players2AdminChan <- playerName
 				}
 			} else {
