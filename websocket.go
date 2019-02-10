@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	_ "html/template"
+ 	"html/template"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -13,6 +13,19 @@ import (
 	"time"
 	"strings"
 )
+
+type Todo struct {
+	GroupName string
+	SecretPhrase  string
+}
+
+type TodoPageData struct {
+	PageTitle string
+	GameLink  string
+	Todos     []Todo
+}
+
+//var tmpl *template.Template
 
 type GamePage struct {
 	Title string
@@ -48,6 +61,12 @@ func NewRouter() *mux.Router {
 
 var routes = Routes{
 	Route{
+		"Todos",
+		"GET",
+		"/todos",
+		Todos,
+	},
+	Route{
 		"Status",
 		"GET",
 		"/status",
@@ -66,15 +85,15 @@ var routes = Routes{
 		Players,
 	},
 	Route{
-		"PlayersDraw",
+		"DrawNumber",
 		"GET",
-		"/playersdraw",
-		PlayersDraw,
+		"/drawnumber/{sessionId}",
+		GameLink,
 	},
 	Route{
 		"Admin",
 		"POST",
-		"/admin",
+		"/admin/{sessionId}",
 		Admin,
 	},
 	Route{
@@ -111,20 +130,21 @@ func Home(w http.ResponseWriter, r *http.Request) {
 
 func Admin(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("API: ", r.URL.Path)
-	err := r.ParseForm()
-	if err != nil {
-		http.Redirect(w, r, "/", http.StatusFound)
+	if !strings.Contains(r.URL.Path, "admin/") {
+		fmt.Println("invalid request ..")
 		return
 	}
-	sessionId := r.Form.Get("groupname") + "-" + r.Form.Get("secretphrase")
+	aIndex := strings.Index(r.URL.Path, "/")
+	subMsg := string(r.URL.Path)[aIndex+1:]
+	sIndex := strings.Index(subMsg, "/")
+	sessionId := subMsg[sIndex+1:]
+	log.Println("SessionId:", sessionId)
 	gameLink := "http://localhost:8081/players/" + sessionId
 	if _, ok := gameSessions[sessionId]; !ok {
 		gameSessions[sessionId] = &GameSession{GameId: sessionId, GameSessionLink: gameLink, GamePlayers: make(map[string]*GameSheet), }
 	}
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	body, _ := readFile("admin")
-	w.Write(body)
 }
 
 func Players(w http.ResponseWriter, r *http.Request) {
@@ -208,7 +228,25 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 			case webMsgIn := <- adminWebInChan:
 				msgType = webMsgIn.MsgType
 				msg = webMsgIn.Msg
-				fmt.Println("Msg:", string(msg))
+				fmt.Println("WebMsgIn:", string(msg))
+				sIndex := strings.Index(string(msg), "/")
+				status := string(msg)[0:sIndex];
+				sessionId = string(msg)[sIndex+1:]
+				log.Println("Status:", status)
+				log.Println("SessionId:", sessionId)
+				if status == "status" {
+					if _, ok := gameSessions[sessionId]; !ok {
+					    gameLink := "http://localhost:8081/players/" + sessionId
+					    gameSessions[sessionId] = &GameSession{GameId: sessionId,
+								       GameSessionLink: gameLink,
+								       GamePlayers: make(map[string]*GameSheet),
+								    }
+					    log.Println("New session created:", sessionId)
+				        }
+					return
+				} else {
+					msg = []byte("drawnumber")
+				}
 			case playerName = <- players2AdminChan:
 				fmt.Println("New Player is being added:", playerName)
 				msg = []byte("new_player")
@@ -230,7 +268,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			var webMsgOut WebMsgOut
-			if string(msg) == "draw"  && len(gameSessions) > 0 {
+			if string(msg) == "drawnumber"  && len(gameSessions) > 0 {
 				dNum := DrawNumber()
 				w.Header().Set("Content-Type", "application/json")
 				webMsgOut.Msg_Type = "draw_number"
@@ -370,6 +408,19 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
+func Todos(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("html/todos.html"))
+	data := TodoPageData{
+		PageTitle: "Let's play Bingo!",
+		GameLink: "http://localhost:8081/players/sessionId",
+		Todos: []Todo{
+			{GroupName: "ABC", SecretPhrase: "Test-1"},
+		},
+	}
+	w.Header().Set("Content-Type", "text/html")
+	tmpl.Execute(w, data)
+}
+
 
 func readFile(title string) ([]byte, error) {
 	filename := "html/" + title + ".html"
@@ -381,6 +432,7 @@ func readFile(title string) ([]byte, error) {
 }
 
 func init() {
+
 	gameSessions = make(map[string]*GameSession)
 
 	adminWebInChan = make(chan *WebMsgIn)

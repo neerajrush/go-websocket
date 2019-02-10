@@ -1,8 +1,23 @@
 <!DOCTYPE html>
 <html>
 	<header>
-		<title> Bingo: Home Page</title>
+		<title> Game: Home Page</title>
 		<style>
+                	.linkbox {
+				width: 480px;
+				padding: 10px;
+				border: 5px solid gray;
+				margin: 0;
+				text-align: center;
+				font-size: 20px;
+			}
+			.group_info {
+  				width: 40%;
+  				padding: 10px;
+  				text-align: center;
+  				background-color: lightblue;
+  				margin-top: 10px;
+			}
 			.button {
   				background-color: #4CAF50;
   				border: none;
@@ -15,45 +30,84 @@
   				margin: 4px 2px;
   				cursor: pointer;
 			}
+			.drawbar {
+				background-color: #40AFFF;
+				border: 2px solid black;
+				color: black;
+				padding: 15px 32px;
+				text-align: left;
+				text-decoration: none;
+				display: inline-block;
+				font-size: 16px;
+				margin: 4px 2px;
+				max-width: 400px;
+			}
 		</style>
 	</header>
 	<body>
-		<h2> <ul>Let's play Bingo</ul> </h2>
+		<h2> <ul>Let's Play Bingo!</ul> </h2>
+		<div class="linkbox" id="gamelink">GameLink</div>
+		<hr>
+		<div class="group_info" id="group_info">
+		Enter Group's Name:
+		<input id="groupname" name="groupname" type="txt" value ="Naisha"/>
 		<br>
-		<form action="/admin" method="post">
-			<div class="container">
-			Enter Group's Name (e.g: Mark, Lina..):<br>
-			<input id="groupname" name="groupname" type="txt" value ="Group Name"/>
-			</div>
-		        <br>
-			<div class="container">
-			Enter Secret Phrase (e.g: Rose, Lily..):<br>
-			<input id="secretphrase" name="secretphrase" type="txt" value ="secret phrase"/>
-			</div>
-		        <br>
-			<div>
-			<button id="startbingo" class="button" type="submit">Start Bingo</button>
-			</div>
-		</form>
-	<script>
-		function players() {
-			const url = "localhost:8080/";
-			const iData = {
-				groupname: document.getElementById("groupname").value,
-				secretphrase: document.getElementById("secretphrase").value,
-			};
-			var xhr = new XMLHttpRequest();
-			xhr.open("POST", "/admin", true);
-			xhr.setRequestHeader('Content-Type', 'application/json');
-			xhr.send(JSON.stringify({
-    					value: iData
-				}));
-				xhr.onload = function() {
-  					console.log(this.responseText);
-  					var data = JSON.parse(this.responseText);
-  					console.log(data);
+		<hr>
+		Enter Secret Phrase:
+		<input id="secretphrase" name="secretphrase" type="txt" value ="Sharma"/>
+		</div>
+		<br>
+		<div>
+		<button class="button" id="draw-button" type="submit" onclick="send()">Start Game</button>
+		</div>
+		<hr>
+		<pre class="drawbar" id="drawnumber">Draw Number: </pre>
+		<script>
+			var pageLink = window.location.href;
+			var drawNumber = document.getElementById("drawnumber");
+			var gameLink = document.getElementById("gamelink");
+			document.getElementById("group_info").style.display = "block";
+			var socket = null;
+                        var sessionId = null;
+
+			function send() {
+				if (document.getElementById("draw-button").textContent == "Start Game") {
+				    var groupName = document.getElementById("groupname");
+				    if (groupName.value == "") {
+					    alert("Please enter Group Name");
+					    return;
+				    }
+				    var secretPhrase = document.getElementById("secretphrase");
+				    if (secretPhrase.value == "") {
+					    alert("Please enter Secret Phrase");
+					    return;
+				    }
+				    sessionId = groupName.value + "-" + secretPhrase.value;
+				    console.log(sessionId);
+				    document.getElementById("draw-button").innerHTML = "Draw Number";
+				    if (gameLink.textContent == "GameLink") {
+					gameLink.innerHTML = pageLink + sessionId;
+					if (document.getElementById("group_info").style.display === "block") {
+    						document.getElementById("group_info").style.display = "none";
+				 	}
+				    }
+			            var url = "ws://localhost:8081/gamelink";
+				    socket = new WebSocket(url);
+				    socket.onopen = function () {
+				    	console.log(url);
+					socket.send("status/" + sessionId);
+				    }
+				} else {
+					socket.send("drawnumber/" + sessionId);
+					socket.onmessage = function (e) {
+						drawNumber.innerHTML += e.data + " ";
+					}
 				}
-		}
-	</script>
+			}
+		</script>
 	</body>
+</html>
+
+<br>
+</body>
 </html>
