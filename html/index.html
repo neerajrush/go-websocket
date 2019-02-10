@@ -83,8 +83,12 @@
 			var drawNumber = document.getElementById("drawnumber");
 			var newPlayer = document.getElementById("newplayer");
 			document.getElementById("group_info").style.display = "block";
-			var socket = null;
-                        var sessionId = null;
+		        var url = "ws://localhost:8081/gamelink";
+		        var socket = new WebSocket(url);
+		        socket.onopen = function () {
+			    console.log(url);
+		        }
+			var sessionId = null;
 
 			function send() {
 				if (document.getElementById("draw-button").textContent == "Start Game") {
@@ -107,22 +111,18 @@
     						document.getElementById("group_info").style.display = "none";
 				 	}
 				    }
-			            var url = "ws://localhost:8081/gamelink";
-				    socket = new WebSocket(url);
-				    socket.onopen = function () {
-				    	console.log(url);
-					socket.send("status/" + sessionId);
-				    }
+		         	    socket.send("status/" + sessionId);
 				} else {
 					socket.send("drawnumber/" + sessionId);
-					socket.onmessage = function (e) {
-						var jsonObj = JSON.parse(e.data);
-						if (jsonObj.msg_type == "new_player") {
-							newPlayer.innerHTML += jsonObj.new_player + " ";
-							return;
-						} 
-						drawNumber.innerHTML += jsonObj.draw_number + " ";
-					}
+				}
+			}
+
+			socket.onmessage = function (e) {
+				var jsonObj = JSON.parse(e.data);
+				if (jsonObj.msg_type == "new_player") {
+					newPlayer.innerHTML += jsonObj.new_player + " ";
+				} else { 
+					drawNumber.innerHTML += jsonObj.draw_number + " ";
 				}
 			}
 		</script>

@@ -97,9 +97,9 @@
 		function send() {
 			var playerName = document.getElementById("player_name").value;
 		        document.getElementById("player").innerHTML = playerName;
-			var updatePath = "update/" + sessionId + "/" + playerName;
-			console.log(updatePath);
-			socket.send(updatePath);
+			var addPlayer = "add/" + sessionId + "/" + playerName;
+			console.log(addPlayer);
+			socket.send(addPlayer);
 		}
 	</script>
 	</body>
