@@ -176,6 +176,7 @@ func DrawNumber() int {
 type WebMsgIn struct {
 	MsgType int
 	Msg []byte
+	Conn  *websocket.Conn
 }
 
 type  WebMsgOut struct {
@@ -207,13 +208,14 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			fmt.Println("GameLink => Msg:", string(msg))
-			adminWebInChan <- &WebMsgIn { MsgType: msgType, Msg: msg, }
+			adminWebInChan <- &WebMsgIn { MsgType: msgType, Msg: msg, Conn: conn, }
 		}
 	}()
 
 	go func() {
 		var msgType int
 		var msg []byte
+		var rConn *websocket.Conn
 		var playerName string
 		var sessionId string
 		for {
@@ -222,6 +224,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 			case webMsgIn := <- adminWebInChan:
 				msgType = webMsgIn.MsgType
 				msg = webMsgIn.Msg
+				rConn = webMsgIn.Conn
 				fmt.Println("GameLink => WebMsgIn:", string(msg))
 				sIndex := strings.Index(string(msg), "/")
 				status := string(msg)[0:sIndex];
@@ -256,10 +259,10 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 					sessionId = sId
 				}
 				// Print the message to the console
-				fmt.Printf("%s is being sent: %s\n", conn.RemoteAddr(), gameLink)
+				fmt.Printf("%s is being sent: %s\n", rConn.RemoteAddr(), gameLink)
 
 				// Write message back to browser
-				if err = conn.WriteMessage(msgType, []byte(gameLink)); err != nil {
+				if err = rConn.WriteMessage(msgType, []byte(gameLink)); err != nil {
 					log.Println(err)
 					return
 				}
@@ -277,10 +280,10 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// Print the message to the console
-				fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), dNum)
+				fmt.Printf("%s is being sent: %d\n", rConn.RemoteAddr(), dNum)
 
 				// Write message back to browser
-				if err = conn.WriteMessage(msgType, []byte(jsonNumber)); err != nil {
+				if err = rConn.WriteMessage(msgType, []byte(jsonNumber)); err != nil {
 					log.Println(err)
 					return
 				}
@@ -303,7 +306,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 
 				// Write message back to browser
-				if err = conn.WriteMessage(msgType, []byte(jsonPlayer)); err != nil {
+				if err = rConn.WriteMessage(msgType, []byte(jsonPlayer)); err != nil {
 					log.Println(err)
 					return
 				}
@@ -315,16 +318,16 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 var webInChan chan *WebMsgIn
 
 func PlayersDraw(w http.ResponseWriter, r *http.Request) {
-	log.Println("Upgrading to websocket for ", r.URL.Path)
 	conn, err := upgrader.Upgrade(w, r, nil) // error ignored for sake of simplicity
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	log.Println("Upgrading to websocket for ", r.URL.Path, " for remote client: ", conn.RemoteAddr())
 
 	go func () {
 		for {
-			log.Println("Reading request from websocket..")
+			log.Println("Reading request from websocket:", conn.RemoteAddr())
 			// Read message from browser
 			msgType, msg, err := conn.ReadMessage()
 			if err != nil {
@@ -336,7 +339,7 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				fmt.Println("invalid request ..")
 				return
 			}
-			webInChan <- &WebMsgIn{ MsgType: msgType, Msg: msg, }
+			webInChan <- &WebMsgIn{ MsgType: msgType, Msg: msg, Conn: conn, }
 		}
 	}()
 
@@ -347,6 +350,7 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 		for {
 			select {
 			case webMsgIn := <- webInChan:
+				rConn := webMsgIn.Conn
 				sIndex := strings.Index(string(webMsgIn.Msg), "/")
 				subMsg := string(webMsgIn.Msg)[sIndex+1:]
 				pIndex := strings.Index(subMsg, "/")
@@ -371,7 +375,7 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				}
 				webMsgOut.Msg_Type = "player_sheet"
 				webMsgOut.Player_Sheet = gameSessions[snId].GamePlayers[playerName].Sheet
-				fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Player_Sheet)
+				fmt.Printf("Reply to: %s is being sent: %d\n", rConn.RemoteAddr(), webMsgOut.Player_Sheet)
 				jsonObj, err := json.Marshal(webMsgOut)
 				if err != nil {
 					fmt.Println(err)
@@ -380,7 +384,7 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 
 				// Write message back to browser
-				if err = conn.WriteMessage(msgType, []byte(jsonObj)); err != nil {
+				if err = rConn.WriteMessage(msgType, []byte(jsonObj)); err != nil {
 					fmt.Println(err)
 					return
 				}
