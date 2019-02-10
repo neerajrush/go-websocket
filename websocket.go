@@ -85,22 +85,16 @@ var routes = Routes{
 		Players,
 	},
 	Route{
-		"DrawNumber",
-		"GET",
-		"/drawnumber/{sessionId}",
-		GameLink,
-	},
-	Route{
-		"Admin",
-		"POST",
-		"/admin/{sessionId}",
-		Admin,
-	},
-	Route{
 		"GameLink",
 		"GET",
 		"/gamelink",
 		GameLink,
+	},
+	Route{
+		"PlayersDraw",
+		"GET",
+		"/playersdraw",
+		PlayersDraw,
 	},
 }
 
@@ -212,7 +206,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				log.Println(err)
 				return
 			}
-			fmt.Println("Msg:", string(msg))
+			fmt.Println("GameLink => Msg:", string(msg))
 			adminWebInChan <- &WebMsgIn { MsgType: msgType, Msg: msg, }
 		}
 	}()
@@ -228,11 +222,11 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 			case webMsgIn := <- adminWebInChan:
 				msgType = webMsgIn.MsgType
 				msg = webMsgIn.Msg
-				fmt.Println("WebMsgIn:", string(msg))
+				fmt.Println("GameLink => WebMsgIn:", string(msg))
 				sIndex := strings.Index(string(msg), "/")
 				status := string(msg)[0:sIndex];
 				sessionId = string(msg)[sIndex+1:]
-				log.Println("Status:", status)
+				log.Println("cmd:", status)
 				log.Println("SessionId:", sessionId)
 				if status == "status" {
 					if _, ok := gameSessions[sessionId]; !ok {
@@ -243,8 +237,11 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 								    }
 					    log.Println("New session created:", sessionId)
 				        }
-					return
 				} else {
+					if _, ok := gameSessions[sessionId]; !ok {
+					    	log.Println("No session found:", sessionId)
+						return
+					}
 					msg = []byte("drawnumber")
 				}
 			case playerName = <- players2AdminChan:
@@ -287,7 +284,11 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 					log.Println(err)
 					return
 				}
-				gameSessions[sessionId].GamePlayers[playerName].DrawChan <- dNum
+				games := gameSessions[sessionId]
+				for player,playerSheet := range games.GamePlayers {
+					log.Println("found player: ", player, "sending drawn number: ", dNum)
+					playerSheet.DrawChan <- dNum
+				}
 			}
 			if string(msg) == "new_player"  && len(gameSessions) > 0 {
 				// Print the message to the console
@@ -330,14 +331,14 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 
 	go func () {
 		for {
-			log.Println("Reading reauest from websocket..")
+			log.Println("Reading request from websocket..")
 			// Read message from browser
 			msgType, msg, err := conn.ReadMessage()
 			if err != nil {
 				log.Println(err)
 				return
 			}
-			log.Println("Here is the Msg:", string(msg))
+			log.Println("PlayersDraw Msg:", string(msg))
 			if !strings.Contains(string(msg), "update/") {
 				fmt.Println("invalid request ..")
 				return
@@ -349,7 +350,6 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 			playerName := subMsg[pIndex+1:]
 			log.Println("SessionId:", snId)
 			log.Println("PlayerName:", playerName)
-			//gameSessions[snId].GamePlayers[playerName].WebInChan <- &WebMsgIn{ MsgType: msgType, Msg: msg, }
 			webInChan <- &WebMsgIn{ MsgType: msgType, Msg: msg, }
 		}
 	}()
@@ -359,37 +359,68 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 		var snId, playerName string
 		var webMsgOut WebMsgOut
 		for {
-			select {
-			case webMsgIn := <- webInChan:
-				if !strings.Contains(string(webMsgIn.Msg), "update/") {
-					fmt.Println("invalid request ..")
-					return
+			if playerName == "" {
+				select {
+				case webMsgIn := <- webInChan:
+					if !strings.Contains(string(webMsgIn.Msg), "update/") {
+						fmt.Println("invalid request ..")
+						return
+					}
+					sIndex := strings.Index(string(webMsgIn.Msg), "/")
+					subMsg := string(webMsgIn.Msg)[sIndex+1:]
+					pIndex := strings.Index(subMsg, "/")
+					snId = subMsg[: pIndex]
+					playerName = subMsg[pIndex+1:]
+					fmt.Println("SessionId:", snId)
+					fmt.Println("PlayerName:", playerName)
+					if _, ok := gameSessions[snId]; !ok {
+						fmt.Println("Invalid Sessonid got:", snId)
+						return
+					}
+					webMsgOut.Msg_Type = "player_sheet"
+					webMsgOut.Player_Sheet = gameSessions[snId].GamePlayers[playerName].Sheet
+					fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Player_Sheet)
+					if _,ok := gameSessions[snId].GamePlayers[playerName]; !ok {
+						gameSessions[snId].GamePlayers[playerName] = &GameSheet{ SheetId: 1, Sheet: webMsgOut.Player_Sheet, }
+					} else {
+						gameSessions[snId].GamePlayers[playerName].SheetId++
+						gameSessions[snId].GamePlayers[playerName].Sheet = webMsgOut.Player_Sheet
+					}
+					players2AdminChan <- playerName
 				}
-				sIndex := strings.Index(string(webMsgIn.Msg), "/")
-				subMsg := string(webMsgIn.Msg)[sIndex+1:]
-				pIndex := strings.Index(subMsg, "/")
-				snId = subMsg[: pIndex]
-				playerName = subMsg[pIndex+1:]
-				fmt.Println("SessionId:", snId)
-				fmt.Println("PlayerName:", playerName)
-				if _, ok := gameSessions[snId]; !ok {
-					fmt.Println("Invalid Sessonid got:", snId)
-					return
+			} else {
+				select {
+				case webMsgIn := <- webInChan:
+					if !strings.Contains(string(webMsgIn.Msg), "update/") {
+						fmt.Println("invalid request ..")
+						return
+					}
+					sIndex := strings.Index(string(webMsgIn.Msg), "/")
+					subMsg := string(webMsgIn.Msg)[sIndex+1:]
+					pIndex := strings.Index(subMsg, "/")
+					snId = subMsg[: pIndex]
+					playerName = subMsg[pIndex+1:]
+					fmt.Println("SessionId:", snId)
+					fmt.Println("PlayerName:", playerName)
+					if _, ok := gameSessions[snId]; !ok {
+						fmt.Println("Invalid Sessonid got:", snId)
+						return
+					}
+					webMsgOut.Msg_Type = "player_sheet"
+					webMsgOut.Player_Sheet = gameSessions[snId].GamePlayers[playerName].Sheet
+					fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Player_Sheet)
+					if _,ok := gameSessions[snId].GamePlayers[playerName]; !ok {
+						gameSessions[snId].GamePlayers[playerName] = &GameSheet{ SheetId: 1, Sheet: webMsgOut.Player_Sheet, }
+					} else {
+						gameSessions[snId].GamePlayers[playerName].SheetId++
+						gameSessions[snId].GamePlayers[playerName].Sheet = webMsgOut.Player_Sheet
+					}
+					players2AdminChan <- playerName
+				case drawNumber := <- gameSessions[snId].GamePlayers[playerName].DrawChan:
+					webMsgOut.Msg_Type = "draw_number"
+					webMsgOut.Draw_Number = drawNumber
+					fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Draw_Number)
 				}
-				webMsgOut.Msg_Type = "player_sheet"
-				webMsgOut.Player_Sheet = gameSessions[snId].GamePlayers[playerName].Sheet
-				fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Player_Sheet)
-				if _,ok := gameSessions[snId].GamePlayers[playerName]; !ok {
-					gameSessions[snId].GamePlayers[playerName] = &GameSheet{ SheetId: 1, Sheet: webMsgOut.Player_Sheet, }
-				} else {
-					gameSessions[snId].GamePlayers[playerName].SheetId++
-					gameSessions[snId].GamePlayers[playerName].Sheet = webMsgOut.Player_Sheet
-				}
-				players2AdminChan <- playerName
-			case drawNumber := <- gameSessions[snId].GamePlayers[playerName].DrawChan:
-				webMsgOut.Msg_Type = "draw_number"
-				webMsgOut.Draw_Number = drawNumber
-				fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Draw_Number)
 			}
 
 			jsonObj, err := json.Marshal(webMsgOut)
