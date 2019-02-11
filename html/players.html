@@ -111,6 +111,8 @@
 			if (document.getElementById("player_info").style.display === "block") {
 				document.getElementById("player_info").style.display = "none";
 			}
+			var tContent = document.getElementById("session_id").textContent;
+			document.getElementById("session_id").innerHTML = " (" + playerName + ") " + tContent;
 		}
 	</script>
 	</body>
