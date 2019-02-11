@@ -74,6 +74,7 @@
 		var sessionId = window.location.href.split('/')[4];
 		document.getElementById("session_id").innerHTML += " " + sessionId;
 		document.getElementById("player_info").style.display = "block";
+		document.getElementById("player_sheet").style.display = "none";
 
 		<!-- websocket -->
 		var socket = new WebSocket("ws://localhost:8081/playersdraw");
@@ -94,6 +95,7 @@
 				}
 				plTable += "</tbody></table>";
 				document.getElementById("player_sheet").innerHTML = plTable;
+				document.getElementById("player_sheet").style.display = "block";
 			}
 			if (jsonObj.msg_type == "draw_number") {
 				document.getElementById("draw_number").innerHTML += jsonObj.draw_number + " ";
