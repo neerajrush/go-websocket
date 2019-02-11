@@ -3,6 +3,13 @@
 	<header>
 		<title>Player</title>
 		<style>
+			.player_info {
+  				width: 40%;
+  				padding: 10px;
+  				text-align: center;
+  				background-color: lightblue;
+  				margin-top: 10px;
+			}
 			.button {
   				background-color: #4CAF50;
   				border: none;
@@ -47,12 +54,10 @@
 	<body>
 		<h2 id="session_id">Yeah! I'm in for Session:</h2>
 		<hr>
-		<div>
-		Player's Name:<br>
+		<div class="player_info" id="player_info">
+		Player's Name:
 		<input id="player_name" class="player_name" type="txt"/>
-		</div>
 		<br>
-		<div>
 		<button class="button" id="player-button" type="submit" onclick="send()">Submit</button>
 		</div>
 		<hr>
@@ -68,6 +73,7 @@
 		<!-- "We need to keep on refreshing the players bingo-sheet." -->
 		var sessionId = window.location.href.split('/')[4];
 		document.getElementById("session_id").innerHTML += " " + sessionId;
+		document.getElementById("player_info").style.display = "block";
 
 		<!-- websocket -->
 		var socket = new WebSocket("ws://localhost:8081/playersdraw");
@@ -100,6 +106,9 @@
 			var addPlayer = "add/" + sessionId + "/" + playerName;
 			console.log(addPlayer);
 			socket.send(addPlayer);
+			if (document.getElementById("player_info").style.display === "block") {
+				document.getElementById("player_info").style.display = "none";
+			}
 		}
 	</script>
 	</body>
