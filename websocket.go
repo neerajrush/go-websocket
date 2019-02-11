@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
- 	"html/template"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -61,12 +60,6 @@ func NewRouter() *mux.Router {
 
 var routes = Routes{
 	Route{
-		"Todos",
-		"GET",
-		"/todos",
-		Todos,
-	},
-	Route{
 		"Status",
 		"GET",
 		"/status",
@@ -101,8 +94,7 @@ var routes = Routes{
 type GameSheet struct {
 	SheetId      int
 	Sheet        [][]int
-	WebInChan    chan *WebMsgIn
-	DrawChan     chan int
+	Conn         *websocket.Conn
 }
 
 type GameSession struct {
@@ -184,6 +176,11 @@ type  WebMsgOut struct {
 	Player_Name   string   `json:"new_player"`
 	Draw_Number   int      `json:"draw_number"`
 	Player_Sheet  [][]int  `json:"player_sheet"`
+}
+
+type DrawnNumRec struct {
+	DrawnNum int
+	Conn	 *websocket.Conn
 }
 
 // Admin reads websocket messages from admin client.
@@ -289,8 +286,8 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				}
 				games := gameSessions[sessionId]
 				for player,playerSheet := range games.GamePlayers {
-					log.Println("found player: ", player, "sending drawn number: ", dNum)
-					playerSheet.DrawChan <- dNum
+					log.Printf("sending drawn number: %d ==> player: %s\n", dNum, player)
+					drawnNumChan <- &DrawnNumRec{ DrawnNum: dNum, Conn: playerSheet.Conn, }
 				}
 			}
 			if string(msg) == "new_player"  && len(gameSessions) > 0 {
@@ -316,6 +313,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 }
 
 var webInChan chan *WebMsgIn
+var drawnNumChan chan *DrawnNumRec
 
 func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil) // error ignored for sake of simplicity
@@ -366,8 +364,7 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				if _, ok := gameSessions[snId].GamePlayers[playerName]; !ok {
 					gameSessions[snId].GamePlayers[playerName] = &GameSheet{ SheetId: 1,
 										      Sheet: getASheet(),
-										      WebInChan: make(chan *WebMsgIn),
-										      DrawChan: make(chan int),
+										      Conn: rConn,
 									   }
 				} else {  // update the existing players sheet.
 					gameSessions[snId].GamePlayers[playerName].SheetId++
@@ -389,11 +386,11 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				players2AdminChan <- playerName
-				/*
-			case drawNumber := <- gameSessions[snId].GamePlayers[playerName].DrawChan:
+			case drawnNumRec := <- drawnNumChan:
 					webMsgOut.Msg_Type = "draw_number"
-					webMsgOut.Draw_Number = drawNumber
-					fmt.Printf("%s is being sent: %d\n", conn.RemoteAddr(), webMsgOut.Draw_Number)
+					webMsgOut.Draw_Number = drawnNumRec.DrawnNum
+					rConn := drawnNumRec.Conn
+					fmt.Printf("%s is being sent: %d\n", rConn.RemoteAddr(), webMsgOut.Draw_Number)
 
 					jsonObj, err := json.Marshal(webMsgOut)
 					if err != nil {
@@ -403,29 +400,14 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")
 
 					// Write message back to browser
-					if err = conn.WriteMessage(msgType, []byte(jsonObj)); err != nil {
+					if err = rConn.WriteMessage(msgType, []byte(jsonObj)); err != nil {
 						fmt.Println(err)
 						return
 					}
-			*/
 			}
 		}
 	}()
 }
-
-func Todos(w http.ResponseWriter, r *http.Request) {
-	tmpl := template.Must(template.ParseFiles("html/todos.html"))
-	data := TodoPageData{
-		PageTitle: "Let's play Bingo!",
-		GameLink: "http://localhost:8081/players/sessionId",
-		Todos: []Todo{
-			{GroupName: "ABC", SecretPhrase: "Test-1"},
-		},
-	}
-	w.Header().Set("Content-Type", "text/html")
-	tmpl.Execute(w, data)
-}
-
 
 func readFile(title string) ([]byte, error) {
 	filename := "html/" + title + ".html"
@@ -444,6 +426,7 @@ func init() {
 	players2AdminChan = make(chan string, 1)
 
 	webInChan = make(chan *WebMsgIn)
+	drawnNumChan = make(chan *DrawnNumRec)
 }
 
 func main() {
