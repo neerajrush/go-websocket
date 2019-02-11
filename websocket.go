@@ -176,10 +176,16 @@ type  WebMsgOut struct {
 	Player_Name   string   `json:"new_player"`
 	Draw_Number   int      `json:"draw_number"`
 	Player_Sheet  [][]int  `json:"player_sheet"`
+	Match         bool     `json:"match"`
+	Col           int      `json:"col"`
+	Row           int      `json:"row"`
 }
 
 type DrawnNumRec struct {
 	DrawnNum int
+	Match    bool
+	Col      int
+	Row      int
 	Conn	 *websocket.Conn
 }
 
@@ -287,7 +293,30 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				games := gameSessions[sessionId]
 				for player,playerSheet := range games.GamePlayers {
 					log.Printf("sending drawn number: %d ==> player: %s\n", dNum, player)
-					drawnNumChan <- &DrawnNumRec{ DrawnNum: dNum, Conn: playerSheet.Conn, }
+					match := false
+					col := 0
+					row := 0
+					for  j, xCol := range playerSheet.Sheet {
+						for i, rVal := range xCol {
+							if rVal == dNum {
+								match = true
+								col = j
+								row = i
+								break
+							}
+							if match {
+								break
+							}
+						}
+					}
+					if match {
+					    log.Printf("match found: %d ==> player: %s, col: %d row: %d\n", dNum, player, col, row)
+					}
+					drawnNumChan <- &DrawnNumRec{ DrawnNum: dNum,
+					                              Match: match,
+							              Col: col,
+								      Row: row,
+								      Conn: playerSheet.Conn, }
 				}
 			}
 			if string(msg) == "new_player"  && len(gameSessions) > 0 {
@@ -389,6 +418,9 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 			case drawnNumRec := <- drawnNumChan:
 					webMsgOut.Msg_Type = "draw_number"
 					webMsgOut.Draw_Number = drawnNumRec.DrawnNum
+					webMsgOut.Match = drawnNumRec.Match
+					webMsgOut.Col = drawnNumRec.Col
+					webMsgOut.Row = drawnNumRec.Row
 					rConn := drawnNumRec.Conn
 					fmt.Printf("%s is being sent: %d\n", rConn.RemoteAddr(), webMsgOut.Draw_Number)
 
