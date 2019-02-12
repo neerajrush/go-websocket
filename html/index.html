@@ -25,34 +25,29 @@
   				padding: 15px 32px;
   				text-align: center;
   				text-decoration: none;
-  				display: inline-block;
   				font-size: 16px;
   				margin: 4px 2px;
   				cursor: pointer;
 			}
 			.drawbar {
-				background-color: #40AFFF;
+				background-color: #40afff6b;
 				border: 2px solid black;
 				color: black;
-				padding: 15px 32px;
 				text-align: left;
-				text-decoration: none;
-				display: inline-block;
-				font-size: 16px;
-				margin: 4px 2px;
-				max-width: 400px;
+				font-size: 20px;
+				word-wrap: break-word;
+				max-width: 500px;
 			}
 			.newplayers {
-				background-color: #409FFF;
+  				width: 50%;
 				border: 2px solid black;
 				color: black;
-				padding: 15px 32px;
+  				background-color: #f8bbee;
+  				margin-top: 5px;
 				text-align: left;
-				text-decoration: none;
-				display: inline-block;
-				font-size: 16px;
-				margin: 4px 2px;
-				max-width: 400px;
+				font-size: 20px;
+				max-width: 200px;
+				word-wrap: break-word;
 			}
 		</style>
 	</header>
@@ -73,9 +68,11 @@
 		<button class="button" id="draw-button" type="submit" onclick="send()">Start Game</button>
 		</div>
 		<hr>
-		<pre class="drawbar" id="drawnumber">Draw Number: </pre>
+		<div class="drawbar" id="drawnumber">Draw Numbers: </div>
 		<hr>
-		<pre class="newplayers" id="newplayer">Players: </pre>
+		<div class="newplayers">Players:
+		<ul id="newplayer"></ul>
+		</div>
 		<hr>
 		<script>
 			var pageLink = window.location.href;
@@ -120,7 +117,7 @@
 			socket.onmessage = function (e) {
 				var jsonObj = JSON.parse(e.data);
 				if (jsonObj.msg_type == "new_player") {
-					newPlayer.innerHTML += jsonObj.new_player + " ";
+					newPlayer.innerHTML += "<li>" + jsonObj.new_player + "</li>";
 				} else { 
 					drawNumber.innerHTML += jsonObj.draw_number + " ";
 				}

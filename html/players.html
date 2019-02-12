@@ -48,11 +48,13 @@
 			}
 			.draw_number {
   				font-size: 20px;
+				word-wrap: break-word;
+				max-width: 600px;
 			}
 		</style>
 	</header>
 	<body>
-		<h2 id="session_id">Yeah! I'm in for Session:</h2>
+		<h2 id="session_id">Yeah! I'm in ... </h2>
 		<hr>
 		<div class="player_info" id="player_info">
 		Player's Name:
@@ -61,7 +63,7 @@
 		<button class="button" id="player-button" type="submit" onclick="send()">Submit</button>
 		</div>
 		<hr>
-		<pre class="draw_number" id="draw_number">Drawn Numbers: </pre>
+		<div class="draw_number" id="draw_number"><B>Draws: </B></div>
    		<hr>
    		<div> 
 			<caption><h4 class="player_sheet" id="player_sheet" style="font-size: 40px; text-align: center; height: 370px"></h4></caption>
