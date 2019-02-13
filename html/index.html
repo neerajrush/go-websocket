@@ -49,6 +49,13 @@
 				max-width: 200px;
 				word-wrap: break-word;
 			}
+			.drawnumber {
+				background-color: #b2f1e161;
+    				color: #8d0404;
+  				text-align: left;
+  				font-size: 50px;
+				width: 100px;
+			}
 		</style>
 	</header>
 	<body>
@@ -68,7 +75,8 @@
 		<button class="button" id="draw-button" type="submit" onclick="send()">Start Game</button>
 		</div>
 		<hr>
-		<div class="drawbar" id="drawnumber">Draw Numbers: </div>
+		<div class="drawbar" id="drawbar">Draw Numbers: </div>
+		<div class="drawnumber" id="drawnumber"></div>
 		<hr>
 		<div class="newplayers">Players:
 		<ul id="newplayer"></ul>
@@ -77,7 +85,7 @@
 		<script>
 			var pageLink = window.location.href;
 			var gameLink = document.getElementById("gamelink");
-			var drawNumber = document.getElementById("drawnumber");
+			var drawBar = document.getElementById("drawbar");
 			var newPlayer = document.getElementById("newplayer");
 			document.getElementById("group_info").style.display = "block";
 		        var url = "ws://localhost:8081/gamelink";
@@ -119,7 +127,12 @@
 				if (jsonObj.msg_type == "new_player") {
 					newPlayer.innerHTML += "<li>" + jsonObj.new_player + "</li>";
 				} else { 
-					drawNumber.innerHTML += jsonObj.draw_number + " ";
+					document.getElementById("drawnumber").style.display = "block";
+					document.getElementById("drawnumber").innerHTML = '<h2>' + jsonObj.draw_number + '</h2>';
+					setTimeout(function(){ 
+						document.getElementById("drawnumber").style.display = "none";
+					}, 1000);
+					drawBar.innerHTML += jsonObj.draw_number + " ";
 				}
 			}
 		</script>
