@@ -18,7 +18,7 @@
   				background-color: lightblue;
   				margin-top: 10px;
 			}
-			.button {
+			.drawbtn {
   				background-color: #4CAF50;
   				border: none;
   				color: white;
@@ -50,11 +50,15 @@
 				word-wrap: break-word;
 			}
 			.drawnumber {
-				background-color: #b2f1e161;
-    				color: #8d0404;
-  				text-align: left;
-  				font-size: 50px;
-				width: 100px;
+				background-color: transparent;
+				color: #8d0404;
+  				text-align: center;
+  				font-size: 60px;
+				width: 120px;
+				height: 80px;
+				top: 140px;
+				left: 200px;
+				position: absolute;
 			}
 		</style>
 	</header>
@@ -66,20 +70,19 @@
 		Enter Group's Name:
 		<input id="groupname" name="groupname" type="txt" value ="Naisha"/>
 		<br>
-		<hr>
 		Enter Secret Phrase:
 		<input id="secretphrase" name="secretphrase" type="txt" value ="Sharma"/>
 		</div>
 		<br>
-		<div>
-		<button class="button" id="draw-button" type="submit" onclick="send()">Start Game</button>
+		<div class="drawnsec">
+		<button class="drawbtn" id="draw-button" type="submit" onclick="send()">Start Game</button>
+		<button class="drawnumber" id="drawnumber">
 		</div>
-		<hr>
+		<br>
 		<div class="drawbar" id="drawbar">Draw Numbers: </div>
-		<div class="drawnumber" id="drawnumber"></div>
-		<hr>
-		<div class="newplayers">Players:
-		<ul id="newplayer"></ul>
+		<br>
+		<div class="newplayers"><u>Players:</u>
+		<ol id="newplayer"></ol>
 		</div>
 		<hr>
 		<script>
@@ -88,6 +91,9 @@
 			var drawBar = document.getElementById("drawbar");
 			var newPlayer = document.getElementById("newplayer");
 			document.getElementById("group_info").style.display = "block";
+			document.getElementById("drawbar").style.display = "block";
+			document.getElementById("drawnumber").style.display = "none";
+			document.getElementById("gamelink").style.display = "none";
 		        var url = "ws://localhost:8081/gamelink";
 		        var socket = new WebSocket(url);
 		        socket.onopen = function () {
@@ -111,6 +117,7 @@
 				    console.log(sessionId);
 				    document.getElementById("draw-button").innerHTML = "Draw Number";
 				    if (gameLink.textContent == "GameLink") {
+					document.getElementById("gamelink").style.display = "block";
 					gameLink.innerHTML = pageLink + "players/" + sessionId;
 					if (document.getElementById("group_info").style.display === "block") {
     						document.getElementById("group_info").style.display = "none";
@@ -127,11 +134,13 @@
 				if (jsonObj.msg_type == "new_player") {
 					newPlayer.innerHTML += "<li>" + jsonObj.new_player + "</li>";
 				} else { 
+					document.getElementById("drawbar").style.display = "none";
 					document.getElementById("drawnumber").style.display = "block";
-					document.getElementById("drawnumber").innerHTML = '<h2>' + jsonObj.draw_number + '</h2>';
+					document.getElementById("drawnumber").innerHTML = jsonObj.draw_number;
 					setTimeout(function(){ 
 						document.getElementById("drawnumber").style.display = "none";
 					}, 1000);
+					document.getElementById("drawbar").style.display = "block";
 					drawBar.innerHTML += jsonObj.draw_number + " ";
 				}
 			}
