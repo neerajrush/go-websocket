@@ -78,7 +78,8 @@
 		document.getElementById("player_sheet").style.display = "none";
 
 		<!-- websocket -->
-		var socket = new WebSocket("ws://192.168.11.23:8081/playersdraw");
+		var socket = new WebSocket("ws://192.168.11.23/playersdraw");
+		//var socket = new WebSocket("ws://71.202.98.110/playersdraw");
 		var plTable = null;
 
 		socket.onmessage = function (e) {

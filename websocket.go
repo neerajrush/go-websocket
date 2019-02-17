@@ -240,7 +240,8 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				log.Println("SessionId:", sessionId)
 				if status == "status" {
 					if _, ok := gameSessions[sessionId]; !ok {
-					    gameLink := "http://192.168.11.23:8081/players/" + sessionId
+					    gameLink := "http://192.168.11.23/players/" + sessionId
+					    //gameLink := "http://71.202.98.110/players/" + sessionId
 					    gameSessions[sessionId] = &GameSession{GameId: sessionId,
 								       GameSessionLink: gameLink,
 								       GamePlayers: make(map[string]*GameSheet),
@@ -467,7 +468,8 @@ func init() {
 
 func main() {
 	router := NewRouter()
-	log.Fatal(http.ListenAndServe("192.168.11.23:8081", router))
+	log.Fatal(http.ListenAndServe("192.168.11.23:80", router))
+	//log.Fatal(http.ListenAndServe("192.168.11.23:80", router))
 }
 
 func getASheet() [][]int {

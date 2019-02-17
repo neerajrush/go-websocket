@@ -94,7 +94,8 @@
 			document.getElementById("drawbar").style.display = "block";
 			document.getElementById("drawnumber").style.display = "none";
 			document.getElementById("gamelink").style.display = "none";
-		        var url = "ws://192.168.11.23:8081/gamelink";
+		        var url = "ws://192.168.11.23/gamelink";
+		        //var url = "ws:/71.202.98.110/gamelink";
 		        var socket = new WebSocket(url);
 		        socket.onopen = function () {
 			    console.log(url);
