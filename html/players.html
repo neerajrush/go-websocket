@@ -123,6 +123,12 @@
 			var tContent = document.getElementById("session_id").textContent;
 			document.getElementById("session_id").innerHTML = " (" + playerName + ") " + tContent;
 		}
+
+		history.pushState(null, null, location.href);
+    		window.onpopstate = function () {
+        		history.go(1);
+    		}
+
 	</script>
 	</body>
 </html>
