@@ -109,7 +109,7 @@ var gameSessions map[string]*GameSession
 func Home(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("API: ", r.URL.Path)
 	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
+	//w.WriteHeader(http.StatusOK)
 	body, _ := readFile("index")
 	w.Write(body)
 }
@@ -130,7 +130,7 @@ func Admin(w http.ResponseWriter, r *http.Request) {
 		gameSessions[sessionId] = &GameSession{GameId: sessionId, GameSessionLink: gameLink, GamePlayers: make(map[string]*GameSheet), }
 	}
 	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
+	//w.WriteHeader(http.StatusOK)
 }
 
 func Players(w http.ResponseWriter, r *http.Request) {
@@ -139,10 +139,13 @@ func Players(w http.ResponseWriter, r *http.Request) {
 	sessionId := vars["sessId"]
 	fmt.Println("SessionId:", sessionId)
 	if _,ok := gameSessions[sessionId]; !ok {
+		fmt.Println("No active session:", sessionId)
 		http.NotFound(w, r)
+		return
 	}
+	fmt.Println("found active session:", sessionId)
 	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
+	//w.WriteHeader(http.StatusOK)
 	body, _ := readFile("players")
 	w.Write(body)
 }
@@ -202,6 +205,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+	fmt.Println("websocket upgraded..")
 
 	go func () {
 		for {
@@ -236,7 +240,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				log.Println("SessionId:", sessionId)
 				if status == "status" {
 					if _, ok := gameSessions[sessionId]; !ok {
-					    gameLink := "http://localhost:8081/players/" + sessionId
+					    gameLink := "http://192.168.11.23:8081/players/" + sessionId
 					    gameSessions[sessionId] = &GameSession{GameId: sessionId,
 								       GameSessionLink: gameLink,
 								       GamePlayers: make(map[string]*GameSheet),
@@ -463,7 +467,7 @@ func init() {
 
 func main() {
 	router := NewRouter()
-	log.Fatal(http.ListenAndServe(":8081", router))
+	log.Fatal(http.ListenAndServe("192.168.11.23:8081", router))
 }
 
 func getASheet() [][]int {

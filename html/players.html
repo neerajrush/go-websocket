@@ -60,6 +60,8 @@
 		Player's Name:
 		<input id="player_name" class="player_name" type="txt"/>
 		<br>
+		<br>
+		<br>
 		<button class="button" id="player-button" type="submit" onclick="send()">Submit</button>
 		</div>
 		<hr>
@@ -76,7 +78,7 @@
 		document.getElementById("player_sheet").style.display = "none";
 
 		<!-- websocket -->
-		var socket = new WebSocket("ws://localhost:8081/playersdraw");
+		var socket = new WebSocket("ws://192.168.11.23:8081/playersdraw");
 		var plTable = null;
 
 		socket.onmessage = function (e) {
