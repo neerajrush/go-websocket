@@ -105,7 +105,7 @@ type BingoSheet struct {
 
 type BingoGame struct {
 	GameId string
-	GameSessionLink    string
+	GameLink string
 	GamePlayers        map[string]*BingoSheet
         draws []int
 	drawCount int
@@ -124,8 +124,9 @@ var  games *BingoSessions
 var  gamesLock sync.Mutex
 
 func NewBingoGame(gameId string) (*BingoGame, error) {
-	bGame := BingoGame{ gameId: gameId, 
-	                    players: make(map[string]*BingoSheet), 
+	bGame := BingoGame{ GameId: gameId,
+			    GameLink: "http://192.168.11.23/players/" + gameId,
+	                    GamePlayers: make(map[string]*BingoSheet),
 			    draws: make([]int, 100), 
 		            drawCount: 0,
 			    winnerOneCol: false,
@@ -136,10 +137,10 @@ func NewBingoGame(gameId string) (*BingoGame, error) {
 }
 
 func NewBingoSheet() (*BingoSheet, error) {
-	bingoSheet := BingoSheet{ sheet: make([][]int, SHEET_DIM), }
-	for i, _ := range bingoSheet.sheet {
+	bingoSheet := BingoSheet{ SheetId: 1, Sheet: make([][]int, SHEET_DIM), }
+	for i, _ := range bingoSheet.Sheet {
 		rows := make([]int, SHEET_DIM)
-		bingoSheet.sheet[i] = rows
+		bingoSheet.Sheet[i] = rows
 	}
 	return &bingoSheet, nil
 }
@@ -167,30 +168,30 @@ func (b *BingoGame) AddPlayer(player string) (*BingoSheet, error) {
 	aSheet, _ := NewBingoSheet()
 	aSheet.populateSheet()
 
-	b.players[player] = aSheet
+	b.GamePlayers[player] = aSheet
 
-	log.Printf("%v: added new player", b.gameId, player)
+	log.Printf("%v: added new player", b.GameId, player)
 
 	return aSheet, nil
 }
 
 func (s *BingoSheet) populateSheet() {
-	for i, col := range s.sheet {
+	for i, col := range s.Sheet {
 		for  j,_ := range col {
-			s.sheet[i][j] = uniqRandNumber(col, i)
+			s.Sheet[i][j] = uniqRandNumber(col, i)
 			s.totalMatchNeeded += 1
 		}
-		sort.Ints(s.sheet[i])
+		sort.Ints(s.Sheet[i])
 		if  i ==  2 {
 			// Wildcard the center location
-			s.sheet[i][2] = -1
+			s.Sheet[i][2] = -1
 			s.totalMatchNeeded -= 1
 		} else {
 			// Wildcard the random location
 			genIn <- 5
 			r := <- genOut
 			if r != 0 {
-				s.sheet[i][r] = -1
+				s.Sheet[i][r] = -1
 				s.totalMatchNeeded -= 1
 			}
 		}
@@ -198,9 +199,9 @@ func (s *BingoSheet) populateSheet() {
 }
 
 func (s *BingoSheet) findMatch(draw int) bool {
-	for i, col := range s.sheet {
+	for i, col := range s.Sheet {
 		for  j,_ := range col {
-			if s.sheet[i][j] == draw {
+			if s.Sheet[i][j] == draw {
 				s.drawMatchCount += 1
 			}
 		}
@@ -263,8 +264,8 @@ func (b *BingoGame) Play(dChan chan int) {
 	for b.drawCount = 0; b.drawCount < 100; b.drawCount++ {
 		b.draws[b.drawCount] = DrawUniqRandNumber(b.draws)
 		dChan <- b.draws[b.drawCount]
-		for player := range b.players {
-			if b.players[player].findMatch(b.draws[b.drawCount])  {
+		for player := range b.GamePlayers {
+			if b.GamePlayers[player].findMatch(b.draws[b.drawCount])  {
 				gotWinner <- player
 				close(gotWinner)
 				return
@@ -286,7 +287,7 @@ func Players(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sessionId := vars["sessId"]
 	fmt.Println("SessionId:", sessionId)
-	if _,ok := gameSessions[sessionId]; !ok {
+	if _,ok := games.activeSessions[sessionId]; !ok {
 		fmt.Println("No active session:", sessionId)
 		http.NotFound(w, r)
 		return
@@ -381,18 +382,16 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				log.Println("cmd:", status)
 				log.Println("SessionId:", sessionId)
 				if status == "status" {
-					if _, ok := gameSessions[sessionId]; !ok {
+					if _, ok := games.activeSessions[sessionId]; !ok {
 					    gameLink := "http://192.168.11.23/players/" + sessionId
 					    //gameLink := "http://71.202.98.110/players/" + sessionId
-					    gameSessions[sessionId] = &GameSession{GameId: sessionId,
-								       GameSessionLink: gameLink,
-								       GamePlayers: make(map[string]*GameSheet),
-								    }
+					    games.activeSessions[sessionId],_ = NewBingoGame(sessionId)
+					    games.activeSessions[sessionId].GameLink = gameLink
 					    log.Println("New session created:", sessionId)
 				        }
 				} else {
-					if _, ok := gameSessions[sessionId]; !ok {
-					    	log.Println("No session found:", sessionId)
+					if _, ok := games.activeSessions[sessionId]; !ok {
+						log.Println("No session found:", sessionId)
 						return
 					}
 					msg = []byte("drawnumber")
@@ -402,10 +401,10 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				msg = []byte("new_player")
 				msgType = 1 // TextMessage
 			}
-			if string(msg) == "gamelink" && len(gameSessions) > 0 {
+			if string(msg) == "gamelink" && len(games.activeSessions) > 0 {
 				var gameLink string
-				for sId, v := range gameSessions {
-					gameLink = v.GameSessionLink
+				for sId, v := range games.activeSessions {
+					gameLink = v.GameLink
 					sessionId = sId
 				}
 				// Print the message to the console
@@ -418,8 +417,10 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			var webMsgOut WebMsgOut
-			if string(msg) == "drawnumber"  && len(gameSessions) > 0 {
-				dNum := DrawNumber()
+			if string(msg) == "drawnumber"  && len(games.activeSessions) > 0 {
+				var currDraws []int
+				currDraws = make([]int, 0)
+				dNum := DrawUniqRandNumber(currDraws)
 				w.Header().Set("Content-Type", "application/json")
 				webMsgOut.Msg_Type = "draw_number"
 				webMsgOut.Draw_Number =  dNum
@@ -437,7 +438,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 					log.Println(err)
 					return
 				}
-				games := gameSessions[sessionId]
+				games := games.activeSessions[sessionId]
 				for player,playerSheet := range games.GamePlayers {
 					log.Printf("sending drawn number: %d ==> player: %s\n", dNum, player)
 					match := false
@@ -466,7 +467,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 								      Conn: playerSheet.Conn, }
 				}
 			}
-			if string(msg) == "new_player"  && len(gameSessions) > 0 {
+			if string(msg) == "new_player"  && len(games.activeSessions) > 0 {
 				// Print the message to the console
 				fmt.Printf("Admin: update for new player %s is being sent: %s\n", conn.RemoteAddr(), playerName)
 				webMsgOut.Msg_Type = string(msg)
@@ -532,22 +533,20 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				playerName = subMsg[pIndex+1:]
 				fmt.Println("WebMsgIn SessionId:", snId)
 				fmt.Println("WebMsgIn PlayerName:", playerName)
-				if _, ok := gameSessions[snId]; !ok {
+				if _, ok := games.activeSessions[snId]; !ok {
 					fmt.Println("Invalid SessonId got:", snId)
 					return
 				}
 				// Adding new player
-				if _, ok := gameSessions[snId].GamePlayers[playerName]; !ok {
-					gameSessions[snId].GamePlayers[playerName] = &GameSheet{ SheetId: 1,
-										      Sheet: getASheet(),
-										      Conn: rConn,
-									   }
+				if _, ok := games.activeSessions[snId].GamePlayers[playerName]; !ok {
+					games.activeSessions[snId].GamePlayers[playerName],_ = NewBingoSheet()
+					games.activeSessions[snId].GamePlayers[playerName].Conn = conn
 				} else {  // update the existing players sheet.
-					gameSessions[snId].GamePlayers[playerName].SheetId++
-					gameSessions[snId].GamePlayers[playerName].Sheet = getASheet() 
+					games.activeSessions[snId].GamePlayers[playerName].SheetId++
+					games.activeSessions[snId].GamePlayers[playerName].Sheet = getASheet()
 				}
 				webMsgOut.Msg_Type = "player_sheet"
-				webMsgOut.Player_Sheet = gameSessions[snId].GamePlayers[playerName].Sheet
+				webMsgOut.Player_Sheet = games.activeSessions[snId].GamePlayers[playerName].Sheet
 				fmt.Printf("Reply to: %s is being sent: %d\n", rConn.RemoteAddr(), webMsgOut.Player_Sheet)
 				jsonObj, err := json.Marshal(webMsgOut)
 				if err != nil {
@@ -608,7 +607,7 @@ func getASheet() [][]int {
 
 func init() {
 
-	gameSessions = make(map[string]*GameSession)
+	games.activeSessions = make(map[string]*BingoGame)
 
 	adminWebInChan = make(chan *WebMsgIn)
 	players2AdminChan = make(chan string, 1)
@@ -624,13 +623,13 @@ func init() {
 func main() {
 	go generateRandomNumber()
 
-	dChan := make (chan int, 100)
-
-	go bGame.Play(dChan)
-
 	router := NewRouter()
-	go log.Fatal(http.ListenAndServe("192.168.11.23:80", router))
+	log.Fatal(http.ListenAndServe("192.168.11.23:80", router))
+}
 
+func checkForWinner(bGame *BingoGame) {
+
+	dChan := make (chan int, 100)
 	var winner string
 
 	for  {
@@ -646,7 +645,9 @@ func main() {
 			break
 		}
 	}
+
 	genIn <- -1
+
 	if ok := TestWinner(bGame, winner); ok {
 		log.Println("Test PASS... winner is",  winner)
 		return
@@ -699,8 +700,8 @@ func matchesIn(draws []int, val int) bool {
 }
 
 func TestWinner(b *BingoGame, winner string) bool {
-	winningSheet := b.players[winner]
-	for _, col := range winningSheet.sheet {
+	winningSheet := b.GamePlayers[winner]
+	for _, col := range winningSheet.Sheet {
 		for _, val := range col {
 			if val == -1 {
 				continue
@@ -714,10 +715,10 @@ func TestWinner(b *BingoGame, winner string) bool {
 	fmt.Println("Start checking for all other players....")
 	allWinners := make([]string, 0)
 
-	for player,bSheet := range b.players {
+	for player,bSheet := range b.GamePlayers {
 		fmt.Println("Lets look for player: ", player)
 		matchFound := true
-		for _, col := range bSheet.sheet {
+		for _, col := range bSheet.Sheet {
 			for _, val := range col {
 				if val == -1 {
 					continue
