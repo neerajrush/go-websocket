@@ -99,6 +99,7 @@
 		        var socket = new WebSocket(url);
 		        socket.onopen = function () {
 			    console.log(url);
+			    keepAlive();
 		        }
 			var sessionId = null;
 
@@ -150,6 +151,25 @@
     			window.onpopstate = function () {
         			history.go(1);
     			}
+
+		        socket.onclose = function () {
+			    cancelKeepAlive();
+		        }
+
+                        var timerID = 0; 
+			function keepAlive() { 
+    				var timeout = 20000;  
+    				if (webSocket.readyState == webSocket.OPEN) {  
+        				webSocket.send('');  
+    				}  
+    				timerId = setTimeout(keepAlive, timeout);  
+			}  
+
+			function cancelKeepAlive() {  
+    				if (timerId) {  
+        				clearTimeout(timerId);  
+    				}  
+			}
 		</script>
 	</body>
 </html>

@@ -79,6 +79,11 @@
 
 		<!-- websocket -->
 		var socket = new WebSocket("ws://192.168.11.23/playersdraw");
+		socket.onopen = function () {
+		    console.log(url);
+		    keepAlive();
+		}
+
 		//var socket = new WebSocket("ws://71.202.98.110/playersdraw");
 		var plTable = null;
 
@@ -129,6 +134,21 @@
     		window.onpopstate = function () {
         		history.go(1);
     		}
+
+		var timerID = 0; 
+		function keepAlive() { 
+			var timeout = 20000;  
+			if (webSocket.readyState == webSocket.OPEN) {  
+				webSocket.send('');  
+			}  
+			timerId = setTimeout(keepAlive, timeout);  
+		}  
+
+		function cancelKeepAlive() {  
+			if (timerId) {  
+				clearTimeout(timerId);  
+			}  
+		}
 
 	</script>
 	</body>
