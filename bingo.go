@@ -607,7 +607,7 @@ func getASheet() [][]int {
 
 func init() {
 
-	games.activeSessions = make(map[string]*BingoGame)
+	games = &BingoSessions{activeSessions: make(map[string]*BingoGame), }
 
 	adminWebInChan = make(chan *WebMsgIn)
 	players2AdminChan = make(chan string, 1)
