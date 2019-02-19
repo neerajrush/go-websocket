@@ -80,7 +80,6 @@
 		<!-- websocket -->
 		var socket = new WebSocket("ws://192.168.11.23/playersdraw");
 		socket.onopen = function () {
-		    console.log(url);
 		    keepAlive();
 		}
 
@@ -96,14 +95,26 @@
 				for (var i = 0; i < jsonObj.player_sheet.length; i++) {
 					var colData = "";
 					for (var j = 0; j < jsonObj.player_sheet[i].length; j++) {
-      						colData += "<tc><td>" + jsonObj.player_sheet[i][j] + "</td></tc>";
+						var cellData = jsonObj.player_sheet[i][j];
+						if  (cellData == "-1") {
+							cellData = ""
+						}
+      						colData += "<tc><td>" + cellData + "</td></tc>";
 					}
 					plTable += "<tr>" + colData + "</tr>";
-
 				}
 				plTable += "</tbody></table>";
 				document.getElementById("player_sheet").innerHTML = plTable;
 				document.getElementById("player_sheet").style.display = "block";
+				for (var i = 0; i < jsonObj.player_sheet.length; i++) {
+					for (var j = 0; j < jsonObj.player_sheet[i].length; j++) {
+						if (jsonObj.player_sheet[i][j] == "-1") {
+							console.log(i, j);
+							var cellItem = document.getElementById("player_sheet_table").rows[i].cells[j];
+    							cellItem.style.background = "cornflowerblue";
+						}
+					}
+				}
 			}
 			if (jsonObj.msg_type == "draw_number") {
 				document.getElementById("draw_number").innerHTML += jsonObj.draw_number + " ";
@@ -116,7 +127,10 @@
     					cellItem.style.background = "lightgreen";
 				}
 			}
-		};
+			if (jsonObj.msg_type == "pong") {
+				console.log(e.data);
+			}
+		}
 
 		function send() {
 			var playerName = document.getElementById("player_name").value;
@@ -138,8 +152,8 @@
 		var timerID = 0; 
 		function keepAlive() { 
 			var timeout = 20000;  
-			if (webSocket.readyState == webSocket.OPEN) {  
-				webSocket.send('');  
+			if (socket.readyState == socket.OPEN) {  
+				socket.send('ping');  
 			}  
 			timerId = setTimeout(keepAlive, timeout);  
 		}  

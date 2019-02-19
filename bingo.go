@@ -25,6 +25,10 @@ type StatusResp struct {
 	Status bool `json:"status"`
 }
 
+type PongResp struct {
+	Msg_Type string   `json:"msg_type"`
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -358,7 +362,17 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			fmt.Println("GameLink => Msg:", string(msg))
-			adminWebInChan <- &WebMsgIn { MsgType: msgType, Msg: msg, Conn: conn, }
+			if string(msg) == "ping" {
+				pongResp := PongResp{ Msg_Type: "pong", }
+				jsonPong, err := json.Marshal(pongResp)
+				w.Header().Set("Content-Type", "application/json")
+				if err = conn.WriteMessage(msgType, []byte(jsonPong)); err != nil {
+					log.Println(err)
+					return
+				}
+			} else {
+				adminWebInChan <- &WebMsgIn { MsgType: msgType, Msg: msg, Conn: conn, }
+			}
 		}
 	}()
 
@@ -510,11 +524,21 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Println("PlayersDraw Msg:", string(msg))
-			if !strings.Contains(string(msg), "add/") {
-				fmt.Println("invalid request ..")
-				return
+			if string(msg) == "ping" {
+				pongResp := PongResp{ Msg_Type: "pong", }
+				jsonPong, err := json.Marshal(pongResp)
+				w.Header().Set("Content-Type", "application/json")
+				if err = conn.WriteMessage(msgType, []byte(jsonPong)); err != nil {
+					log.Println(err)
+					return
+				}
+			} else {
+				if !strings.Contains(string(msg), "add/") {
+					fmt.Println("invalid request ..")
+					return
+				}
+				webInChan <- &WebMsgIn{ MsgType: msgType, Msg: msg, Conn: conn, }
 			}
-			webInChan <- &WebMsgIn{ MsgType: msgType, Msg: msg, Conn: conn, }
 		}
 	}()
 
@@ -541,9 +565,11 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 				if _, ok := games.activeSessions[snId].GamePlayers[playerName]; !ok {
 					games.activeSessions[snId].GamePlayers[playerName],_ = NewBingoSheet()
 					games.activeSessions[snId].GamePlayers[playerName].Conn = conn
+					games.activeSessions[snId].GamePlayers[playerName].populateSheet()
 				} else {  // update the existing players sheet.
 					games.activeSessions[snId].GamePlayers[playerName].SheetId++
 					games.activeSessions[snId].GamePlayers[playerName].Sheet = getASheet()
+					games.activeSessions[snId].GamePlayers[playerName].populateSheet()
 				}
 				webMsgOut.Msg_Type = "player_sheet"
 				webMsgOut.Player_Sheet = games.activeSessions[snId].GamePlayers[playerName].Sheet

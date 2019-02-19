@@ -135,6 +135,9 @@
 				var jsonObj = JSON.parse(e.data);
 				if (jsonObj.msg_type == "new_player") {
 					newPlayer.innerHTML += "<li>" + jsonObj.new_player + "</li>";
+				}
+				else if (jsonObj.msg_type == "pong") {
+					console.log("heartbeat:" + e.data);
 				} else { 
 					document.getElementById("drawbar").style.display = "none";
 					document.getElementById("drawnumber").style.display = "block";
@@ -159,8 +162,8 @@
                         var timerID = 0; 
 			function keepAlive() { 
     				var timeout = 20000;  
-    				if (webSocket.readyState == webSocket.OPEN) {  
-        				webSocket.send('');  
+    				if (socket.readyState == socket.OPEN) {  
+        				socket.send('ping');  
     				}  
     				timerId = setTimeout(keepAlive, timeout);  
 			}  
