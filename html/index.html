@@ -135,8 +135,11 @@
 				var jsonObj = JSON.parse(e.data);
 				if (jsonObj.msg_type == "new_player") {
 					newPlayer.innerHTML += "<li>" + jsonObj.new_player + "</li>";
-				}
-				else if (jsonObj.msg_type == "pong") {
+				} else if (jsonObj.msg_type == "winner" && jsonObj.winner == true) {
+					console.log("winner:" + e.data);
+					newPlayer.innerHTML = "<b>" + "WINNER" + "</b>";
+					newPlayer.innerHTML += "<ol><b>" + jsonObj.new_player + "</b></ol>";
+				} else if (jsonObj.msg_type == "pong") {
 					console.log("heartbeat:" + e.data);
 				} else { 
 					document.getElementById("drawbar").style.display = "none";

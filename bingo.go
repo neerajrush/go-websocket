@@ -210,6 +210,7 @@ func (s *BingoSheet) findMatch(draw int) bool {
 			}
 		}
 	}
+	log.Println("DrawMatchCount:", s.drawMatchCount, " total Match Needed:", s.totalMatchNeeded)
 	if s.drawMatchCount == s.totalMatchNeeded {
 		s.fullHouseMatch = true
 		return true
@@ -242,7 +243,11 @@ func uniqRandNumber(aCol []int, idx int) int {
 
 
 func DrawUniqRandNumber(draws []int) int {
+	dCount := 0
 	for {
+		if dCount >= 75 {
+			break
+		}
 		genIn <- 75
 		r := <- genOut
 		if r == 0  {
@@ -256,10 +261,12 @@ func DrawUniqRandNumber(draws []int) int {
 			}
 		}
 		if  duplicate {
+			dCount += 1
 			continue
 		}
 		return r
 	}
+	return 0
 }
 
 var gotWinner chan string
@@ -437,8 +444,17 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 			if string(msg) == "drawnumber"  && len(games.activeSessions) > 0 {
 				bingoSession := games.activeSessions[sessionId]
 				dNum := DrawUniqRandNumber(bingoSession.draws)
-				bingoSession.draws[bingoSession.drawCount] = dNum
-				bingoSession.drawCount += 1
+				if dNum == 0 {
+					log.Println("DrawNumber ==> 0")
+				} else {
+					bingoSession.draws[bingoSession.drawCount] = dNum
+					bingoSession.drawCount += 1
+				}
+				if bingoSession.drawCount == 75 {
+					log.Println("DrawNumber's list is full. We should already have a winner.")
+					sort.Ints(bingoSession.draws)
+					log.Println(bingoSession.draws)
+				}
 				w.Header().Set("Content-Type", "application/json")
 				webMsgOut.Msg_Type = "draw_number"
 				webMsgOut.Draw_Number =  dNum
@@ -456,6 +472,8 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 					log.Println(err)
 					return
 				}
+				winnerFound := false
+				winnerName  := ""
 				for player,playerSheet := range bingoSession.GamePlayers {
 					log.Printf("sending drawn number: %d ==> player: %s\n", dNum, player)
 					match := false
@@ -476,9 +494,11 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 					}
 					if match {
 					    log.Printf("match found: %d ==> player: %s, col: %d row: %d\n", dNum, player, col, row)
-					    if bingoSession.GamePlayers[player].findMatch(bingoSession.draws[bingoSession.drawCount])  {
+					    if playerSheet.findMatch(dNum)  {
+						        winnerFound = true
+							winnerName = player
 							fmt.Printf("Admin: found winner: %s and is being sent: %s\n", conn.RemoteAddr(), player)
-							webMsgOut.Msg_Type = string(msg)
+							webMsgOut.Msg_Type = "winner"
 							webMsgOut.Player_Name = player
 							webMsgOut.Winner = true
 							jsonPlayer, err := json.Marshal(webMsgOut)
@@ -499,7 +519,12 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 								      Match: match,
 								      Col: col,
 								      Row: row,
-								              Conn: playerSheet.Conn, }
+								      Conn: playerSheet.Conn, }
+				}
+				if winnerFound {
+					log.Println("GAME OVER ==> WINNER:", winnerName)
+					log.Println("Killing the session", sessionId)
+				        delete(games.activeSessions, sessionId)
 				}
 			}
 			if string(msg) == "new_player"  && len(games.activeSessions) > 0 {
