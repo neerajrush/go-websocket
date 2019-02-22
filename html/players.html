@@ -126,6 +126,10 @@
 					var cellItem = document.getElementById("player_sheet_table").rows[col].cells[row];
     					cellItem.style.background = "lightgreen";
 				}
+				if (jsonObj.winner == true) {
+					document.getElementById("draw_number").innerHTML += "<b>WINNER: " + jsonObj.new_player + " (Game Over)</b>";
+		    			cancelKeepAlive();
+				}
 			}
 			if (jsonObj.msg_type == "pong") {
 				console.log(e.data);

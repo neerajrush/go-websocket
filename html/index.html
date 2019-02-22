@@ -139,6 +139,7 @@
 					console.log("winner:" + e.data);
 					newPlayer.innerHTML = "<b>" + "WINNER" + "</b>";
 					newPlayer.innerHTML += "<ol><b>" + jsonObj.new_player + "</b></ol>";
+		    			cancelKeepAlive();
 				} else if (jsonObj.msg_type == "pong") {
 					console.log("heartbeat:" + e.data);
 				} else { 

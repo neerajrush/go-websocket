@@ -345,6 +345,7 @@ type DrawnNumRec struct {
 	Col      int
 	Row      int
 	Conn	 *websocket.Conn
+	WinnerName string
 }
 
 // Admin reads websocket messages from admin client.
@@ -425,6 +426,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				msg = []byte("new_player")
 				msgType = 1 // TextMessage
 			}
+			var webMsgOut WebMsgOut
 			if string(msg) == "gamelink" && len(games.activeSessions) > 0 {
 				var gameLink string
 				for sId, v := range games.activeSessions {
@@ -439,9 +441,25 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 					log.Println(err)
 					return
 				}
-			}
-			var webMsgOut WebMsgOut
-			if string(msg) == "drawnumber"  && len(games.activeSessions) > 0 {
+			} else if string(msg) == "new_player"  && len(games.activeSessions) > 0 {
+				// Print the message to the console
+				fmt.Printf("Admin: update for new player %s is being sent: %s\n", conn.RemoteAddr(), playerName)
+				webMsgOut.Msg_Type = string(msg)
+				webMsgOut.Player_Name = playerName
+				webMsgOut.Winner = false
+				jsonPlayer, err := json.Marshal(webMsgOut)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+
+				// Write message back to browser
+				if err = rConn.WriteMessage(msgType, []byte(jsonPlayer)); err != nil {
+					log.Println(err)
+					return
+				}
+			} else if string(msg) == "drawnumber"  && len(games.activeSessions) > 0 {
 				bingoSession := games.activeSessions[sessionId]
 				dNum := DrawUniqRandNumber(bingoSession.draws)
 				if dNum == 0 {
@@ -475,7 +493,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				winnerFound := false
 				winnerName  := ""
 				for player,playerSheet := range bingoSession.GamePlayers {
-					log.Printf("sending drawn number: %d ==> player: %s\n", dNum, player)
+					log.Printf("sending drawn number: %d ==> player: %s Addr: %s\n", dNum, player, playerSheet.Conn.RemoteAddr())
 					match := false
 					col := 0
 					row := 0
@@ -519,31 +537,13 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 								      Match: match,
 								      Col: col,
 								      Row: row,
-								      Conn: playerSheet.Conn, }
+								      Conn: playerSheet.Conn,
+							              WinnerName: winnerName, }
 				}
 				if winnerFound {
 					log.Println("GAME OVER ==> WINNER:", winnerName)
 					log.Println("Killing the session", sessionId)
 				        delete(games.activeSessions, sessionId)
-				}
-			}
-			if string(msg) == "new_player"  && len(games.activeSessions) > 0 {
-				// Print the message to the console
-				fmt.Printf("Admin: update for new player %s is being sent: %s\n", conn.RemoteAddr(), playerName)
-				webMsgOut.Msg_Type = string(msg)
-				webMsgOut.Player_Name = playerName
-				webMsgOut.Winner = false
-				jsonPlayer, err := json.Marshal(webMsgOut)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				w.Header().Set("Content-Type", "application/json")
-
-				// Write message back to browser
-				if err = rConn.WriteMessage(msgType, []byte(jsonPlayer)); err != nil {
-					log.Println(err)
-					return
 				}
 			}
 		}
@@ -645,6 +645,12 @@ func PlayersDraw(w http.ResponseWriter, r *http.Request) {
 					webMsgOut.Col = drawnNumRec.Col
 					webMsgOut.Row = drawnNumRec.Row
 					rConn := drawnNumRec.Conn
+					if drawnNumRec.WinnerName == "" {
+						webMsgOut.Winner = false
+					} else {
+						webMsgOut.Winner = true
+						webMsgOut.Player_Name = drawnNumRec.WinnerName
+					}
 					fmt.Printf("%s is being sent: %d\n", rConn.RemoteAddr(), webMsgOut.Draw_Number)
 
 					jsonObj, err := json.Marshal(webMsgOut)
