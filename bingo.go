@@ -492,6 +492,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				}
 				winnerFound := false
 				winnerName  := ""
+				xPlayers := make([]string, 0)
 				for player,playerSheet := range bingoSession.GamePlayers {
 					log.Printf("sending drawn number: %d ==> player: %s Addr: %s\n", dNum, player, playerSheet.Conn.RemoteAddr())
 					match := false
@@ -539,8 +540,19 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 								      Row: row,
 								      Conn: playerSheet.Conn,
 							              WinnerName: winnerName, }
+					if !winnerFound {
+						xPlayers = append(xPlayers, player)
+					}
 				}
 			        if winnerFound {
+					for _, player := range xPlayers {
+						drawnNumChan <- &DrawnNumRec{ DrawnNum: 0,
+									      Match: false,
+									      Col: 0,
+									      Row: 0,
+									      Conn: bingoSession.GamePlayers[player].Conn,
+									      WinnerName: winnerName, }
+					}
 					log.Println("GAME OVER ==> WINNER:", winnerName)
 					log.Println("Killing the session", sessionId)
 				        delete(games.activeSessions, sessionId)

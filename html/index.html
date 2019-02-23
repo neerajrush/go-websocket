@@ -102,6 +102,7 @@
 			    keepAlive();
 		        }
 			var sessionId = null;
+			var winnerAnnounced = false;
 
 			function send() {
 				if (document.getElementById("draw-button").textContent == "Start Game") {
@@ -137,9 +138,14 @@
 					newPlayer.innerHTML += "<li>" + jsonObj.new_player + "</li>";
 				} else if (jsonObj.msg_type == "winner" && jsonObj.winner == true) {
 					console.log("winner:" + e.data);
-					newPlayer.innerHTML = "<b>" + "WINNER" + "</b>";
-					newPlayer.innerHTML += "<ol><b>" + jsonObj.new_player + "</b></ol>";
-		    			cancelKeepAlive();
+					if (winnerAnnounced) {
+						newPlayer.innerHTML += "<ol><b>" + jsonObj.new_player + "</b></ol>";
+					} else {
+						newPlayer.innerHTML = "<b>" + "WINNER" + "</b>";
+						newPlayer.innerHTML += "<ol><b>" + jsonObj.new_player + "</b></ol>";
+						winnerAnnounced = true;
+		    				cancelKeepAlive();
+					}
 				} else if (jsonObj.msg_type == "pong") {
 					console.log("heartbeat:" + e.data);
 				} else { 
