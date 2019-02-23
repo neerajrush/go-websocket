@@ -388,7 +388,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 				msgType = webMsgIn.MsgType
 				msg = webMsgIn.Msg
 				adminConn = webMsgIn.Conn
-				if string(msg) == "ping" {
+			        if string(msg) == "ping" {
 					pongResp := PongResp{ Msg_Type: "pong", }
 					jsonPong, err := json.Marshal(pongResp)
 					w.Header().Set("Content-Type", "application/json")
@@ -513,7 +513,7 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 					if match {
 					    log.Printf("match found: %d ==> player: %s, col: %d row: %d\n", dNum, player, col, row)
 					    if playerSheet.findMatch(dNum)  {
-						        winnerFound = true
+							winnerFound = true
 							winnerName = player
 							fmt.Printf("Admin: found winner: %s and is being sent: %s\n", conn.RemoteAddr(), player)
 							webMsgOut.Msg_Type = "winner"
@@ -540,11 +540,11 @@ func GameLink(w http.ResponseWriter, r *http.Request) {
 								      Conn: playerSheet.Conn,
 							              WinnerName: winnerName, }
 				}
-				if winnerFound {
+			        if winnerFound {
 					log.Println("GAME OVER ==> WINNER:", winnerName)
 					log.Println("Killing the session", sessionId)
 				        delete(games.activeSessions, sessionId)
-				}
+			        }
 			}
 		}
 	}()
